@@ -6,10 +6,14 @@ import {
 } from '@/lib/contracts'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+// Bloc de déploiement du contrat CarpeEscrow sur Base (8 mai 2026)
+const DEPLOY_BLOCK = 45_717_327n
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const fromBlock = BigInt(searchParams.get('fromBlock') ?? '0')
+  const fromBlock = BigInt(searchParams.get('fromBlock') ?? DEPLOY_BLOCK.toString())
   const toBlock = searchParams.get('toBlock') ? BigInt(searchParams.get('toBlock')!) : 'latest' as const
 
   try {

@@ -4,6 +4,9 @@ import { publicClient, formatUsdc, formatDiem } from '@/lib/viemClient'
 import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from '@/lib/contracts'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+const DEPLOY_BLOCK = 45_717_327n
 
 function toDate(ts: number) {
   return ts ? new Date(ts * 1000).toLocaleString('fr-FR') : ''
@@ -63,7 +66,7 @@ export async function GET(req: Request) {
 
   try {
     const { deposits, charges, batchCharges, externalRoutes, providerWithdrawals, migrations, rebates, treasuryFunds, ts } =
-      await fetchAllEvents(0n, 'latest')
+      await fetchAllEvents(DEPLOY_BLOCK, 'latest')
 
     const wb = new ExcelJS.Workbook()
     wb.creator = 'Carpe Diem Comptabilité'
