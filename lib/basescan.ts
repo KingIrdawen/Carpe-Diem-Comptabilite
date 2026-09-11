@@ -1,7 +1,9 @@
 import { decodeEventLog } from 'viem'
 import { CARPE_ESCROW_ABI, CARPE_ESCROW_ADDRESS } from './contracts'
 
-const BASE_URL = 'https://api.basescan.org/api'
+// API V2 Etherscan avec chainid Base (8453)
+const BASE_URL = 'https://api.etherscan.io/v2/api'
+const CHAIN_ID = '8453'
 const DEPLOY_BLOCK = 45_717_327
 
 interface RawLog {
@@ -19,6 +21,7 @@ async function fetchLogs(fromBlock: number, apiKey: string): Promise<RawLog[]> {
 
   while (true) {
     const url = new URL(BASE_URL)
+    url.searchParams.set('chainid', CHAIN_ID)
     url.searchParams.set('module', 'logs')
     url.searchParams.set('action', 'getLogs')
     url.searchParams.set('address', CARPE_ESCROW_ADDRESS)
