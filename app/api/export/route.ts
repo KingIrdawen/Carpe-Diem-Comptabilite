@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
-import { publicClient, formatUsdc, formatDiem } from '@/lib/viemClient'
-import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from '@/lib/contracts'
+import { fetchAllContractEvents, DecodedEvent } from '@/lib/basescan'
+import { formatUsdc, formatDiem } from '@/lib/viemClient'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-const DEPLOY_BLOCK = 45_717_327n
 
 function toDate(ts: number) {
   return ts ? new Date(ts * 1000).toLocaleString('fr-FR') : ''
@@ -17,38 +15,9 @@ function shortAddr(addr: string | undefined) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 
-async function fetchAllEvents(fromBlock: bigint, toBlock: bigint | 'latest') {
-  const [deposits, charges, batchCharges, externalRoutes, providerWithdrawals, migrations, rebates, treasuryFunds] =
-    await Promise.all([
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'Deposit', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'Charge', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'BatchCharge', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'ExternalRouteSettled', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'ProviderWithdrawal', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'CreditsMigrated', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'RebateDistributed', fromBlock, toBlock }),
-      publicClient.getContractEvents({ address: CARPE_ESCROW_ADDRESS, abi: CARPE_ESCROW_ABI, eventName: 'TreasuryFunded', fromBlock, toBlock }),
-    ])
-
-  const allBlocks = [...deposits, ...charges, ...batchCharges, ...externalRoutes,
-    ...providerWithdrawals, ...migrations, ...rebates, ...treasuryFunds]
-    .map(e => e.blockNumber).filter(Boolean) as bigint[]
-  const unique = [...new Set(allBlocks)]
-  const blockData = await Promise.all(unique.map(n => publicClient.getBlock({ blockNumber: n })))
-  const timestamps = Object.fromEntries(blockData.map(b => [b.number.toString(), Number(b.timestamp)]))
-  const ts = (bn: bigint | null | undefined) => bn ? (timestamps[bn.toString()] ?? 0) : 0
-
-  return { deposits, charges, batchCharges, externalRoutes, providerWithdrawals, migrations, rebates, treasuryFunds, ts }
-}
-
-function filterByMonth<T extends { blockNumber?: bigint | null }>(
-  events: T[],
-  ts: (bn: bigint | null | undefined) => number,
-  year: number,
-  month: number
-): T[] {
+function filterByMonth(events: DecodedEvent[], year: number, month: number): DecodedEvent[] {
   return events.filter(e => {
-    const d = new Date(ts(e.blockNumber) * 1000)
+    const d = new Date(e.timestamp * 1000)
     return d.getFullYear() === year && d.getMonth() + 1 === month
   })
 }
@@ -59,143 +28,128 @@ function styleHeader(row: ExcelJS.Row) {
   row.alignment = { vertical: 'middle' }
 }
 
+function usdc(e: DecodedEvent, key: string) {
+  return formatUsdc(BigInt(e.args[key] as string))
+}
+function diem(e: DecodedEvent, key: string) {
+  return formatDiem(BigInt(e.args[key] as string))
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()))
   const month = parseInt(searchParams.get('month') ?? String(new Date().getMonth() + 1))
 
   try {
-    const { deposits, charges, batchCharges, externalRoutes, providerWithdrawals, migrations, rebates, treasuryFunds, ts } =
-      await fetchAllEvents(DEPLOY_BLOCK, 'latest')
+    const allEvents = await fetchAllContractEvents()
+
+    const deposits    = filterByMonth(allEvents.filter(e => e.type === 'Deposit'), year, month)
+    const charges     = filterByMonth(allEvents.filter(e => e.type === 'Charge'), year, month)
+    const batches     = filterByMonth(allEvents.filter(e => e.type === 'BatchCharge'), year, month)
+    const extRoutes   = filterByMonth(allEvents.filter(e => e.type === 'ExternalRouteSettled'), year, month)
+    const withdrawals = filterByMonth(allEvents.filter(e => e.type === 'ProviderWithdrawal'), year, month)
+    const migrations  = filterByMonth(allEvents.filter(e => e.type === 'CreditsMigrated'), year, month)
+    const rebates     = filterByMonth(allEvents.filter(e => e.type === 'RebateDistributed'), year, month)
+    const treasury    = filterByMonth(allEvents.filter(e => e.type === 'TreasuryFunded'), year, month)
 
     const wb = new ExcelJS.Workbook()
     wb.creator = 'Carpe Diem Comptabilité'
     wb.created = new Date()
-
     const monthName = new Date(year, month - 1).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
 
-    // Sheet 1: Dépôts
+    // Dépôts
     const shDep = wb.addWorksheet('Dépôts')
     shDep.addRow(['Date', 'Utilisateur', 'Montant USDC', 'Tx Hash'])
     styleHeader(shDep.getRow(1))
-    filterByMonth(deposits, ts, year, month).forEach(e => {
-      shDep.addRow([toDate(ts(e.blockNumber)), e.args?.user, formatUsdc(e.args?.amount ?? 0n), e.transactionHash])
-    })
+    deposits.forEach(e => shDep.addRow([toDate(e.timestamp), e.args.user, usdc(e, 'amount'), e.txHash]))
     shDep.columns = [{ width: 22 }, { width: 44 }, { width: 16 }, { width: 70 }]
 
-    // Sheet 2: Charges
+    // Charges
     const shCharge = wb.addWorksheet('Charges')
     shCharge.addRow(['Date', 'Utilisateur', 'Provider', 'USDC débité', 'DIEM reçu', 'Part provider (DIEM)', 'Frais (DIEM)', 'Surcharge (DIEM)', 'Tx Hash'])
     styleHeader(shCharge.getRow(1))
-    filterByMonth(charges, ts, year, month).forEach(e => {
-      shCharge.addRow([
-        toDate(ts(e.blockNumber)), e.args?.user, e.args?.provider,
-        formatUsdc(e.args?.amount ?? 0n), formatDiem(e.args?.diemReceived ?? 0n),
-        formatDiem(e.args?.providerShare ?? 0n), formatDiem(e.args?.fees ?? 0n),
-        formatDiem(e.args?.surcharge ?? 0n), e.transactionHash,
-      ])
-    })
-    filterByMonth(batchCharges, ts, year, month).forEach(e => {
-      shCharge.addRow([
-        toDate(ts(e.blockNumber)), `(batch ${e.args?.entryCount} entrées)`, '—',
-        formatUsdc(e.args?.totalUsdc ?? 0n), formatDiem(e.args?.diemReceived ?? 0n),
-        '—', formatDiem(e.args?.fees ?? 0n), formatDiem(e.args?.surcharge ?? 0n),
-        e.transactionHash,
-      ])
-    })
+    charges.forEach(e => shCharge.addRow([
+      toDate(e.timestamp), e.args.user, e.args.provider,
+      usdc(e, 'amount'), diem(e, 'diemReceived'), diem(e, 'providerShare'),
+      diem(e, 'fees'), diem(e, 'surcharge'), e.txHash,
+    ]))
+    batches.forEach(e => shCharge.addRow([
+      toDate(e.timestamp), `(batch ${e.args.entryCount} entrées)`, '—',
+      usdc(e, 'totalUsdc'), diem(e, 'diemReceived'), '—',
+      diem(e, 'fees'), diem(e, 'surcharge'), e.txHash,
+    ]))
     shCharge.columns = [{ width: 22 }, { width: 44 }, { width: 44 }, { width: 14 }, { width: 14 }, { width: 20 }, { width: 14 }, { width: 18 }, { width: 70 }]
 
-    // Sheet 3: Routes externes
+    // Routes externes
     const shExt = wb.addWorksheet('Routes externes')
     shExt.addRow(['Date', 'Utilisateur', 'Vers Float (USDC)', 'Vers Treasury (USDC)', 'Total (USDC)', 'Tx Hash'])
     styleHeader(shExt.getRow(1))
-    filterByMonth(externalRoutes, ts, year, month).forEach(e => {
-      const toFloat = formatUsdc(e.args?.toFloat ?? 0n)
-      const toTreasury = formatUsdc(e.args?.toTreasury ?? 0n)
-      shExt.addRow([toDate(ts(e.blockNumber)), e.args?.user, toFloat, toTreasury, toFloat + toTreasury, e.transactionHash])
+    extRoutes.forEach(e => {
+      const f = usdc(e, 'toFloat'), t = usdc(e, 'toTreasury')
+      shExt.addRow([toDate(e.timestamp), e.args.user, f, t, f + t, e.txHash])
     })
     shExt.columns = [{ width: 22 }, { width: 44 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 70 }]
 
-    // Sheet 4: Retraits providers
+    // Retraits providers
     const shProv = wb.addWorksheet('Retraits providers')
     shProv.addRow(['Date', 'Provider', 'Montant DIEM', 'Tx Hash'])
     styleHeader(shProv.getRow(1))
-    filterByMonth(providerWithdrawals, ts, year, month).forEach(e => {
-      shProv.addRow([toDate(ts(e.blockNumber)), e.args?.provider, formatDiem(e.args?.amount ?? 0n), e.transactionHash])
-    })
+    withdrawals.forEach(e => shProv.addRow([toDate(e.timestamp), e.args.provider, diem(e, 'amount'), e.txHash]))
     shProv.columns = [{ width: 22 }, { width: 44 }, { width: 16 }, { width: 70 }]
 
-    // Sheet 5: Migrations
+    // Migrations
     const shMig = wb.addWorksheet('Migrations')
     shMig.addRow(['Date', 'Utilisateur', 'Compte destinataire', 'Montant USDC', 'Tx Hash'])
     styleHeader(shMig.getRow(1))
-    filterByMonth(migrations, ts, year, month).forEach(e => {
-      shMig.addRow([toDate(ts(e.blockNumber)), e.args?.user, e.args?.account, formatUsdc(e.args?.amount ?? 0n), e.transactionHash])
-    })
+    migrations.forEach(e => shMig.addRow([toDate(e.timestamp), e.args.user, e.args.account, usdc(e, 'amount'), e.txHash]))
     shMig.columns = [{ width: 22 }, { width: 44 }, { width: 44 }, { width: 14 }, { width: 70 }]
 
-    // Sheet 6: Rebates
+    // Rebates
     const shRebate = wb.addWorksheet('Rebates')
     shRebate.addRow(['Date', 'USDC In', 'DIEM Out', 'Nb providers', 'Tx Hash'])
     styleHeader(shRebate.getRow(1))
-    filterByMonth(rebates, ts, year, month).forEach(e => {
-      shRebate.addRow([toDate(ts(e.blockNumber)), formatUsdc(e.args?.usdcIn ?? 0n), formatDiem(e.args?.diemOut ?? 0n), Number(e.args?.providerCount ?? 0n), e.transactionHash])
-    })
+    rebates.forEach(e => shRebate.addRow([toDate(e.timestamp), usdc(e, 'usdcIn'), diem(e, 'diemOut'), Number(e.args.providerCount), e.txHash]))
     shRebate.columns = [{ width: 22 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 70 }]
 
-    // Sheet 7: Treasury
+    // Treasury
     const shTreasury = wb.addWorksheet('Treasury')
     shTreasury.addRow(['Date', 'Destinataire', 'Montant DIEM', 'Raison', 'Tx Hash'])
     styleHeader(shTreasury.getRow(1))
-    filterByMonth(treasuryFunds, ts, year, month).forEach(e => {
-      shTreasury.addRow([toDate(ts(e.blockNumber)), shortAddr(e.args?.to), formatDiem(e.args?.amount ?? 0n), e.args?.reason, e.transactionHash])
-    })
+    treasury.forEach(e => shTreasury.addRow([toDate(e.timestamp), shortAddr(e.args.to as string), diem(e, 'amount'), e.args.reason, e.txHash]))
     shTreasury.columns = [{ width: 22 }, { width: 14 }, { width: 16 }, { width: 30 }, { width: 70 }]
 
-    // Sheet Résumé
+    // Résumé
     const shSum = wb.addWorksheet('Résumé')
-    const depFiltered = filterByMonth(deposits, ts, year, month)
-    const chargeFiltered = filterByMonth(charges, ts, year, month)
-    const batchFiltered = filterByMonth(batchCharges, ts, year, month)
-    const extFiltered = filterByMonth(externalRoutes, ts, year, month)
-    const provFiltered = filterByMonth(providerWithdrawals, ts, year, month)
-    const migFiltered = filterByMonth(migrations, ts, year, month)
-    const rebateFiltered = filterByMonth(rebates, ts, year, month)
-    const treasuryFiltered = filterByMonth(treasuryFunds, ts, year, month)
-
-    const totalDeposits = depFiltered.reduce((s, e) => s + formatUsdc(e.args?.amount ?? 0n), 0)
-    const totalCharged = chargeFiltered.reduce((s, e) => s + formatUsdc(e.args?.amount ?? 0n), 0)
-      + batchFiltered.reduce((s, e) => s + formatUsdc(e.args?.totalUsdc ?? 0n), 0)
-    const totalExternal = extFiltered.reduce((s, e) => s + formatUsdc(e.args?.toFloat ?? 0n) + formatUsdc(e.args?.toTreasury ?? 0n), 0)
-    const totalMigrations = migFiltered.reduce((s, e) => s + formatUsdc(e.args?.amount ?? 0n), 0)
-    const totalFees = chargeFiltered.reduce((s, e) => s + formatDiem(e.args?.fees ?? 0n), 0)
-      + batchFiltered.reduce((s, e) => s + formatDiem(e.args?.fees ?? 0n), 0)
-    const totalProvWithdrawals = provFiltered.reduce((s, e) => s + formatDiem(e.args?.amount ?? 0n), 0)
-    const totalRebates = rebateFiltered.reduce((s, e) => s + formatUsdc(e.args?.usdcIn ?? 0n), 0)
-    const totalTreasury = treasuryFiltered.reduce((s, e) => s + formatDiem(e.args?.amount ?? 0n), 0)
+    const totalDep  = deposits.reduce((s, e) => s + usdc(e, 'amount'), 0)
+    const totalChg  = charges.reduce((s, e) => s + usdc(e, 'amount'), 0) + batches.reduce((s, e) => s + usdc(e, 'totalUsdc'), 0)
+    const totalExt  = extRoutes.reduce((s, e) => s + usdc(e, 'toFloat') + usdc(e, 'toTreasury'), 0)
+    const totalMig  = migrations.reduce((s, e) => s + usdc(e, 'amount'), 0)
+    const totalFees = charges.reduce((s, e) => s + diem(e, 'fees'), 0) + batches.reduce((s, e) => s + diem(e, 'fees'), 0)
+    const totalWdr  = withdrawals.reduce((s, e) => s + diem(e, 'amount'), 0)
+    const totalReb  = rebates.reduce((s, e) => s + usdc(e, 'usdcIn'), 0)
+    const totalTre  = treasury.reduce((s, e) => s + diem(e, 'amount'), 0)
 
     shSum.addRow([`Résumé comptable — ${monthName}`])
     shSum.getRow(1).font = { bold: true, size: 14 }
     shSum.addRow([])
     shSum.addRow(['FLUX USDC', 'Montant'])
     styleHeader(shSum.getRow(3))
-    shSum.addRow(['Dépôts utilisateurs', totalDeposits])
-    shSum.addRow(['Charges (services)', -totalCharged])
-    shSum.addRow(['Routes externes', -totalExternal])
-    shSum.addRow(['Migrations crédits', -totalMigrations])
-    shSum.addRow(['Rebates (USDC in)', -totalRebates])
-    shSum.addRow(['Solde net USDC', totalDeposits - totalCharged - totalExternal - totalMigrations - totalRebates])
+    shSum.addRow(['Dépôts utilisateurs', totalDep])
+    shSum.addRow(['Charges (services)', -totalChg])
+    shSum.addRow(['Routes externes', -totalExt])
+    shSum.addRow(['Migrations crédits', -totalMig])
+    shSum.addRow(['Rebates (USDC in)', -totalReb])
+    shSum.addRow(['Solde net USDC', totalDep - totalChg - totalExt - totalMig - totalReb])
     shSum.getRow(9).font = { bold: true }
     shSum.addRow([])
     shSum.addRow(['FLUX DIEM', 'Montant'])
     styleHeader(shSum.getRow(11))
     shSum.addRow(['Frais protocole', totalFees])
-    shSum.addRow(['Retraits providers', -totalProvWithdrawals])
-    shSum.addRow(['Vers Treasury', totalTreasury])
+    shSum.addRow(['Retraits providers', -totalWdr])
+    shSum.addRow(['Vers Treasury', totalTre])
     shSum.columns = [{ width: 30 }, { width: 20 }]
 
     const buffer = await wb.xlsx.writeBuffer()
-
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -203,7 +157,8 @@ export async function GET(req: Request) {
       },
     })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Erreur génération export' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Export error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
