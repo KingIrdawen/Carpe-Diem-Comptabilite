@@ -31,6 +31,7 @@ export default function DashboardPage() {
       })
       .then(data => {
         if (!data) return
+        if (data.error) { setError(data.error); return }
         const s: Stats = {
           totalDepositsUsdc: data.deposits.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0),
           totalChargedUsdc: data.charges.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0) +
@@ -47,7 +48,7 @@ export default function DashboardPage() {
         }
         setStats(s)
       })
-      .catch(() => setError('Impossible de charger les données'))
+      .catch((e: Error) => setError(e.message ?? 'Impossible de charger les données'))
       .finally(() => setLoading(false))
   }, [router])
 

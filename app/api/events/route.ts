@@ -134,7 +134,8 @@ export async function GET(req: Request) {
       })),
     })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Erreur blockchain' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('API events error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
