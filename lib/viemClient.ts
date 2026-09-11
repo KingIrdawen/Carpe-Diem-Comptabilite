@@ -3,9 +3,7 @@ import { base } from 'viem/chains'
 
 export const publicClient = createPublicClient({
   chain: base,
-  transport: http(process.env.BASE_RPC_URL ?? 'https://mainnet.base.org', {
-    batch: true,
-  }),
+  transport: http(process.env.BASE_RPC_URL ?? 'https://mainnet.base.org'),
 })
 
 export function formatUsdc(raw: bigint): number {
