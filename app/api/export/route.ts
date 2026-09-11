@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
-import { fetchAllContractEvents, DecodedEvent } from '@/lib/basescan'
+import { fetchAllContractEvents, DecodedEvent } from '@/lib/fetchEvents'
 import { formatUsdc, formatDiem } from '@/lib/viemClient'
 
 export const dynamic = 'force-dynamic'

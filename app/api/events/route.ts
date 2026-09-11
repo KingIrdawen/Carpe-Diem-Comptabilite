@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchAllContractEvents } from '@/lib/basescan'
+import { fetchAllContractEvents } from '@/lib/fetchEvents'
 import { formatUsdc, formatDiem } from '@/lib/viemClient'
 
 export const dynamic = 'force-dynamic'
