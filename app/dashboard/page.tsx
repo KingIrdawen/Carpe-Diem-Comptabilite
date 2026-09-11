@@ -25,9 +25,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetch('/api/events')
-      .then(r => {
+      .then(async r => {
         if (r.status === 401 || r.status === 403) { router.push('/'); return null }
-        return r.json()
+        const text = await r.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          throw new Error(`Réponse serveur invalide (timeout ?) : ${text.slice(0, 120)}`)
+        }
       })
       .then(data => {
         if (!data) return

@@ -3,8 +3,8 @@ import { publicClient } from './viemClient'
 import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from './contracts'
 
 const DEPLOY_BLOCK = 45_717_327n
-const CHUNK_SIZE = 2000n
-const PARALLEL_CHUNKS = 5 // conservateur pour éviter le rate limiting
+const CHUNK_SIZE = 10_000n  // Alchemy supporte 10 000 blocs par appel
+const PARALLEL_CHUNKS = 30  // 30 appels simultanés → ~18 itérations pour tout l'historique
 
 export interface DecodedEvent {
   type: string
@@ -38,12 +38,11 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint): Promise<DecodedEv
           args: decoded.args as Record<string, unknown>,
         })
       } catch {
-        // Log non reconnu dans notre ABI, ignoré
+        // Log non reconnu dans notre ABI
       }
     }
     return events
   } catch {
-    // Chunk échoué, on continue sans lui
     return []
   }
 }
@@ -51,7 +50,6 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint): Promise<DecodedEv
 export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK): Promise<DecodedEvent[]> {
   const latestBlock = await publicClient.getBlockNumber()
 
-  // Créer tous les chunks
   const chunks: Array<{ from: bigint; to: bigint }> = []
   let current = fromBlock
   while (current <= latestBlock) {
@@ -62,7 +60,6 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK): Promise<
     current = end + 1n
   }
 
-  // Fetch en petits groupes parallèles
   const allEvents: DecodedEvent[] = []
   for (let i = 0; i < chunks.length; i += PARALLEL_CHUNKS) {
     const batch = chunks.slice(i, i + PARALLEL_CHUNKS)
@@ -72,12 +69,12 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK): Promise<
 
   if (allEvents.length === 0) return []
 
-  // Résoudre les timestamps
+  // Résoudre les timestamps par blockNumber
   const uniqueBlocks = [...new Set(allEvents.map(e => e.blockNumber))]
   const blockTimestamps: Record<string, number> = {}
 
-  for (let i = 0; i < uniqueBlocks.length; i += 10) {
-    const batch = uniqueBlocks.slice(i, i + 10)
+  for (let i = 0; i < uniqueBlocks.length; i += 20) {
+    const batch = uniqueBlocks.slice(i, i + 20)
     const blocks = await Promise.all(
       batch.map(bn => publicClient.getBlock({ blockNumber: BigInt(bn) }).catch(() => null))
     )
