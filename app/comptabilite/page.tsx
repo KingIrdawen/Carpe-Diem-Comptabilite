@@ -124,24 +124,24 @@ export default function ComptabilitePage() {
         {loading && <p className="text-gray-400 animate-pulse">Chargement…</p>}
 
         {months.map(m => (
-          <div key={`${m.year}-${m.monthNum}`} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-700 flex items-center justify-between">
+          <div key={`${m.year}-${m.monthNum}`} className="bg-blue-500/5 border border-blue-500/20 rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-blue-500/20 flex items-center justify-between">
               <h3 className="font-semibold capitalize">{m.month} {m.year}</h3>
               <span className={`text-sm font-mono font-medium ${m.netUsdc >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 Net USDC : {m.netUsdc >= 0 ? '+' : ''}{fmt(m.netUsdc)}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-gray-700">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20">
               <Cell label="Dépôts" value={`+${fmt(m.depositsUsdc)} USDC`} color="green" />
               <Cell label="Charges" value={`-${fmt(m.chargesUsdc)} USDC`} color="blue" />
               <Cell label="Routes ext." value={`-${fmt(m.externalUsdc)} USDC`} color="purple" />
               <Cell label="Migrations" value={`-${fmt(m.migrationsUsdc)} USDC`} color="orange" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-gray-700 border-t border-gray-700">
-              <Cell label="Frais proto." value={`${fmt(m.feesProtocol, 4)} DIEM`} color="gray" />
-              <Cell label="Retr. prov." value={`${fmt(m.providerWithdrawals, 4)} DIEM`} color="gray" />
-              <Cell label="Rebates" value={`-${fmt(m.rebatesUsdc)} USDC`} color="gray" />
-              <Cell label="Treasury" value={`${fmt(m.treasuryDiem, 4)} DIEM`} color="gray" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/20">
+              <Cell label="Frais proto." value={`${fmt(m.feesProtocol, 4)} DIEM`} color={m.feesProtocol > 0 ? 'green' : 'gray'} />
+              <Cell label="Retr. prov." value={`${fmt(m.providerWithdrawals, 4)} DIEM`} color={m.providerWithdrawals > 0 ? 'red' : 'gray'} />
+              <Cell label="Rebates" value={`-${fmt(m.rebatesUsdc)} USDC`} color={m.rebatesUsdc > 0 ? 'red' : 'gray'} />
+              <Cell label="Treasury" value={`${fmt(m.treasuryDiem, 4)} DIEM`} color={m.treasuryDiem > 0 ? 'green' : 'gray'} />
             </div>
           </div>
         ))}
@@ -180,7 +180,7 @@ export default function ComptabilitePage() {
 function Cell({ label, value, color }: { label: string; value: string; color: string }) {
   const text: Record<string, string> = {
     green: 'text-green-400', blue: 'text-blue-400', purple: 'text-purple-400',
-    orange: 'text-orange-400', gray: 'text-gray-300',
+    orange: 'text-orange-400', red: 'text-red-400', gray: 'text-gray-300',
   }
   return (
     <div className="px-4 py-3 space-y-0.5">

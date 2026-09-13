@@ -307,8 +307,10 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
     weekNum++
   }
 
-  // Build set of synced start dates for O(1) lookup
-  const syncedStarts = new Set(syncedRanges.map(r => r.start))
+  // A week is synced if any recorded range overlaps with it
+  function isSynced(weekStart: string, weekEnd: string) {
+    return syncedRanges.some(r => r.start <= weekEnd && r.end >= weekStart)
+  }
 
   // Group weeks by month label
   const byMonth: Record<string, typeof weeks> = {}
@@ -326,13 +328,13 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
             <span className="text-xs text-gray-400 w-14 shrink-0">{month}</span>
             <div className="flex flex-wrap gap-1">
               {ws.map(w => {
-                const synced = syncedStarts.has(w.start)
+                const synced = isSynced(w.start, w.end)
                 return (
                   <div
                     key={w.start}
                     title={`${w.start} → ${w.end}`}
                     className={`w-9 h-7 rounded text-xs flex items-center justify-center font-mono cursor-default
-                      ${synced ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-500'}`}
+                      ${synced ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-200'}`}
                   >
                     {w.label}
                   </div>
