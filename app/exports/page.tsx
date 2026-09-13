@@ -43,7 +43,7 @@ export default function ExportsPage() {
       </nav>
 
       <main className="p-6 max-w-xl mx-auto space-y-6">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-6">
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-6">
           <div>
             <h3 className="font-medium mb-1">Export mensuel</h3>
             <p className="text-sm text-gray-400">
@@ -57,7 +57,7 @@ export default function ExportsPage() {
               <select
                 value={month}
                 onChange={e => setMonth(Number(e.target.value))}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i}>{m}</option>
@@ -72,7 +72,7 @@ export default function ExportsPage() {
                 onChange={e => setYear(Number(e.target.value))}
                 min={2024}
                 max={2030}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function ExportsPage() {
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-3">
+        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-3">
           <h3 className="font-medium">Contenu du fichier Excel</h3>
           <ul className="text-sm text-gray-400 space-y-1">
             <li>📥 <strong className="text-gray-200">Feuille 1</strong> — Dépôts utilisateurs (USDC)</li>

@@ -124,7 +124,7 @@ export default function ComptabilitePage() {
         {loading && <p className="text-gray-400 animate-pulse">Chargement…</p>}
 
         {months.map(m => (
-          <div key={`${m.year}-${m.monthNum}`} className="border border-gray-700 rounded-xl overflow-hidden">
+          <div key={`${m.year}-${m.monthNum}`} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-700 flex items-center justify-between">
               <h3 className="font-semibold capitalize">{m.month} {m.year}</h3>
               <span className={`text-sm font-mono font-medium ${m.netUsdc >= 0 ? 'text-green-400' : 'text-red-400'}`}>
