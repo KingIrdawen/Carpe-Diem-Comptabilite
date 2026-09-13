@@ -41,6 +41,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(subtractDays(30))
@@ -83,26 +84,73 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function syncRange(start: string, end: string): Promise<number> {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startDate: start, endDate: end }),
+    })
+    const text = await res.text()
+    try {
+      const data = JSON.parse(text)
+      if (!res.ok) throw new Error(data.error)
+      return data.synced ?? 0
+    } catch {
+      throw new Error(`Réponse invalide : ${text.slice(0, 120)}`)
+    }
+  }
+
   async function handleSync() {
     setSyncing(true)
     setSyncError(null)
     setSyncSuccess(null)
+    setSyncProgress(null)
     try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate, endDate }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setSyncError(data.error); return }
-      const d = data.debug
-      const debugMsg = d ? ` | blocs ${d.fromBlock}→${d.toBlock} (${d.chunkCount} chunks) | logs bruts: ${d.rawLogs} | décodés: ${d.decoded} | échecs: ${d.failed}${d.failedTopics?.length ? ' | topics non reconnus: ' + d.failedTopics.join(', ') : ''}${d.rpcError ? ' | erreur RPC: ' + d.rpcError : ''}` : ''
-      setSyncSuccess(`✓ ${data.synced} événement(s) synchronisé(s)${debugMsg}`)
+      const synced = await syncRange(startDate, endDate)
+      setSyncSuccess(`✓ ${synced} événement(s) synchronisé(s)`)
       loadData()
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : 'Erreur sync')
     } finally {
       setSyncing(false)
+      setSyncProgress(null)
+    }
+  }
+
+  async function handleFullSync() {
+    setSyncing(true)
+    setSyncError(null)
+    setSyncSuccess(null)
+    setSyncProgress(null)
+
+    // Semaine par semaine depuis le déploiement (8 mai 2026) jusqu'à aujourd'hui
+    const DEPLOY_DATE = new Date('2026-05-08')
+    const today = new Date()
+    const weeks: { start: string; end: string }[] = []
+    let cur = new Date(DEPLOY_DATE)
+    while (cur < today) {
+      const next = new Date(cur)
+      next.setDate(next.getDate() + 7)
+      weeks.push({
+        start: cur.toISOString().slice(0, 10),
+        end: (next > today ? today : next).toISOString().slice(0, 10),
+      })
+      cur = next
+    }
+
+    let totalSynced = 0
+    try {
+      for (let i = 0; i < weeks.length; i++) {
+        setSyncProgress(`Semaine ${i + 1} / ${weeks.length} (${weeks[i].start} → ${weeks[i].end})…`)
+        totalSynced += await syncRange(weeks[i].start, weeks[i].end)
+      }
+      setSyncSuccess(`✓ Historique complet synchronisé — ${totalSynced} événement(s) au total`)
+      loadData()
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'Erreur sync')
+    } finally {
+      setSyncing(false)
+      setSyncProgress(null)
     }
   }
 
@@ -173,7 +221,14 @@ export default function DashboardPage() {
                 disabled={syncing}
                 className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
               >
-                {syncing ? 'Synchronisation…' : 'Synchroniser'}
+                {syncing && !syncProgress ? 'Synchronisation…' : 'Synchroniser'}
+              </button>
+              <button
+                onClick={handleFullSync}
+                disabled={syncing}
+                className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+              >
+                {syncProgress ? '…' : 'Tout l\'historique'}
               </button>
               {startDate && endDate && (() => {
                 const diff = new Date(endDate).getTime() - new Date(startDate).getTime()
@@ -183,6 +238,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {syncProgress && <p className="text-sm text-blue-400 animate-pulse">{syncProgress}</p>}
           {syncError && <p className="text-sm text-red-400">{syncError}</p>}
           {syncSuccess && <p className="text-sm text-green-400">{syncSuccess}</p>}
         </section>
