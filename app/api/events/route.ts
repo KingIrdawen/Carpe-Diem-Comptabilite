@@ -16,7 +16,7 @@ export async function GET() {
     await initDb()
     const rows = await getEventsFromDb()
     const syncStatus = await getSyncStatus()
-    const syncedRanges = await getSyncedRanges()
+    const syncedRanges = await getSyncedRanges().catch(() => [])
 
     const deposits = rows.filter(r => r.type === 'Deposit' || r.type === 'X402Pull').map(r => ({
       type: r.type === 'X402Pull' ? 'x402pull' : 'deposit',
