@@ -158,12 +158,12 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Du</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500" />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Au</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500" />
             </div>
             <button
               onClick={handleSync}
