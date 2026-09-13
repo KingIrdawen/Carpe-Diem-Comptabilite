@@ -62,7 +62,17 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug
     }
     return events
   } catch (e) {
-    if (debug) debug.rpcError = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof Error ? e.message : String(e)
+    // Fallback: si la plage est trop grande, on la divise en deux et on réessaie
+    if (toBlock > fromBlock && /range|too large|limit/i.test(msg)) {
+      const mid = fromBlock + (toBlock - fromBlock) / 2n
+      const [left, right] = await Promise.all([
+        fetchChunk(fromBlock, mid, debug),
+        fetchChunk(mid + 1n, toBlock, debug),
+      ])
+      return [...left, ...right]
+    }
+    if (debug) debug.rpcError = msg
     return []
   }
 }
