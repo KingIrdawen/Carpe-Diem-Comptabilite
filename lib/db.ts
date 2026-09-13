@@ -93,7 +93,8 @@ export async function recordSyncedRange(startDate: string, endDate: string) {
 }
 
 export async function getSyncedRanges(): Promise<{ start_date: string; end_date: string }[]> {
-  return sql`SELECT start_date, end_date FROM synced_ranges ORDER BY start_date ASC`
+  const rows = await sql`SELECT start_date, end_date FROM synced_ranges ORDER BY start_date ASC`
+  return rows as { start_date: string; end_date: string }[]
 }
 
 export async function getSyncStatus() {
