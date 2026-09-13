@@ -40,12 +40,17 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug
           data: log.data,
           topics: log.topics,
         })
+        const rawArgs = decoded.args as Record<string, unknown>
+        const args: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(rawArgs)) {
+          args[k] = typeof v === 'bigint' ? v.toString() : v
+        }
         events.push({
           type: decoded.eventName as string,
           txHash: log.transactionHash ?? '',
           blockNumber: log.blockNumber?.toString() ?? '0',
           timestamp: 0,
-          args: decoded.args as Record<string, unknown>,
+          args,
         })
         if (debug) debug.decoded++
       } catch {
