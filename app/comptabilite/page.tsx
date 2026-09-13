@@ -88,7 +88,7 @@ export default function ComptabilitePage() {
         })
 
         const sorted = Object.entries(byMonth)
-          .sort(([a], [b]) => b.localeCompare(a))
+          .sort(([a], [b]) => a.localeCompare(b))
           .map(([, v]) => v)
 
         setMonths(sorted)
@@ -153,7 +153,7 @@ export default function ComptabilitePage() {
         {months.length > 0 && (
           <div className="border-2 border-blue-500/40 bg-blue-500/5 rounded-xl overflow-hidden mt-6">
             <div className="px-5 py-3 border-b border-blue-500/30 flex items-center justify-between">
-              <h3 className="font-bold text-blue-300">Récapitulatif annuel — {months[0]?.year}</h3>
+              <h3 className="font-bold text-blue-300">Récapitulatif annuel — {months[months.length - 1]?.year}</h3>
               <span className={`text-sm font-mono font-bold ${yearly.netUsdc >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 Net USDC : {yearly.netUsdc >= 0 ? '+' : ''}{fmt(yearly.netUsdc)}
               </span>
