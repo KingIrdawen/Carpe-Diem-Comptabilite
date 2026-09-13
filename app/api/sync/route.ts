@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Plage de dates invalide' }, { status: 400 })
     }
 
-    const debugInfo: FetchDebugInfo = { fromBlock: '', toBlock: '', chunkCount: 0, rawLogs: 0, decoded: 0, failed: 0 }
+    const debugInfo: FetchDebugInfo = { fromBlock: '', toBlock: '', chunkCount: 0, rawLogs: 0, decoded: 0, failed: 0, failedTopics: [] }
     const events = await fetchAllContractEvents(fromBlock, toBlock, debugInfo)
 
     const toInsert = events.map(e => ({

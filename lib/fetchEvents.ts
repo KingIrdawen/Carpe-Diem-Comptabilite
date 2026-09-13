@@ -3,8 +3,8 @@ import { publicClient } from './viemClient'
 import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from './contracts'
 
 const DEPLOY_BLOCK = 45_717_327n
-const CHUNK_SIZE = 10_000n  // Alchemy supporte 10 000 blocs par appel
-const PARALLEL_CHUNKS = 30  // 30 appels simultanés → ~18 itérations pour tout l'historique
+const CHUNK_SIZE = 3_500n
+const PARALLEL_CHUNKS = 30
 
 export interface DecodedEvent {
   type: string
@@ -19,6 +19,7 @@ export interface ChunkDebug {
   decoded: number
   failed: number
   rpcError?: string
+  failedTopics: string[]
 }
 
 async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug): Promise<DecodedEvent[]> {
@@ -48,7 +49,10 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug
         })
         if (debug) debug.decoded++
       } catch {
-        if (debug) debug.failed++
+        if (debug) {
+          debug.failed++
+          if (log.topics[0]) debug.failedTopics.push(log.topics[0])
+        }
       }
     }
     return events
@@ -66,6 +70,7 @@ export interface FetchDebugInfo {
   decoded: number
   failed: number
   rpcError?: string
+  failedTopics: string[]
 }
 
 export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?: bigint, debugOut?: FetchDebugInfo): Promise<DecodedEvent[]> {
@@ -87,7 +92,7 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?:
     debugOut.chunkCount = chunks.length
   }
 
-  const chunkDebug: ChunkDebug = { rawLogs: 0, decoded: 0, failed: 0 }
+  const chunkDebug: ChunkDebug = { rawLogs: 0, decoded: 0, failed: 0, failedTopics: [] }
 
   const allEvents: DecodedEvent[] = []
   for (let i = 0; i < chunks.length; i += PARALLEL_CHUNKS) {
@@ -101,6 +106,7 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?:
     debugOut.decoded = chunkDebug.decoded
     debugOut.failed = chunkDebug.failed
     if (chunkDebug.rpcError) debugOut.rpcError = chunkDebug.rpcError
+    debugOut.failedTopics = [...new Set(chunkDebug.failedTopics)]
   }
 
   if (allEvents.length === 0) return []
