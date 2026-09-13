@@ -299,22 +299,24 @@ export default function DashboardPage() {
 }
 
 function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
-  const DEPLOY = new Date('2026-05-08')
   const today = new Date()
+  const YEAR = 2026
 
-  // Build all weeks since deployment
-  const weeks: { start: string; end: string; label: string; month: string }[] = []
-  let cur = new Date(DEPLOY)
+  // All weeks of 2026 (Jan 1 → Dec 31)
+  const weeks: { start: string; end: string; label: string; month: string; future: boolean }[] = []
+  let cur = new Date(`${YEAR}-01-01`)
   let weekNum = 1
-  while (cur <= today) {
+  const yearEnd = new Date(`${YEAR}-12-31`)
+  while (cur <= yearEnd) {
     const end = new Date(cur)
     end.setDate(end.getDate() + 6)
-    const endCapped = end > today ? today : end
+    const endCapped = end > yearEnd ? yearEnd : end
     weeks.push({
       start: cur.toISOString().slice(0, 10),
       end: endCapped.toISOString().slice(0, 10),
       label: `S${weekNum}`,
-      month: cur.toLocaleString('fr-FR', { month: 'short', year: '2-digit' }),
+      month: cur.toLocaleString('fr-FR', { month: 'short' }),
+      future: cur > today,
     })
     cur = new Date(end)
     cur.setDate(cur.getDate() + 1)
@@ -335,7 +337,7 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
 
   return (
     <section className="border border-gray-700 rounded-xl p-5 space-y-3">
-      <h3 className="font-semibold text-sm">Calendrier des synchronisations</h3>
+      <h3 className="font-semibold text-sm">Calendrier des synchronisations — {YEAR}</h3>
       <div className="space-y-2">
         {Object.entries(byMonth).map(([month, ws]) => (
           <div key={month} className="flex items-center gap-2">
@@ -348,7 +350,9 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
                     key={w.start}
                     title={`${w.start} → ${w.end}`}
                     className={`w-9 h-7 rounded text-xs flex items-center justify-center font-mono cursor-default
-                      ${synced ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-200'}`}
+                      ${synced ? 'bg-green-600 text-white'
+                        : w.future ? 'bg-gray-800 text-gray-600'
+                        : 'bg-gray-600 text-gray-200'}`}
                   >
                     {w.label}
                   </div>
@@ -358,9 +362,12 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-500">
-        {syncedRanges.length} / {weeks.length} semaines synchronisées
-      </p>
+      <div className="flex items-center gap-4 text-xs text-gray-500">
+        <span>{syncedRanges.length} semaine(s) synchronisée(s)</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-green-600" /> synchronisée</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-600" /> non synchronisée</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-800" /> future</span>
+      </div>
     </section>
   )
 }
