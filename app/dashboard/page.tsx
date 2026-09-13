@@ -128,7 +128,7 @@ export default function DashboardPage() {
       <main className="p-6 max-w-7xl mx-auto space-y-6">
 
         {/* Panneau de synchronisation */}
-        <section className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+        <section className="border border-gray-700 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Synchronisation blockchain</h3>
