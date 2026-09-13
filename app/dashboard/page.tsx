@@ -167,13 +167,20 @@ export default function DashboardPage() {
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                 className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500" />
             </div>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
-            >
-              {syncing ? 'Synchronisation…' : 'Synchroniser'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
+              >
+                {syncing ? 'Synchronisation…' : 'Synchroniser'}
+              </button>
+              {startDate && endDate && (() => {
+                const diff = new Date(endDate).getTime() - new Date(startDate).getTime()
+                const blocks = Math.max(0, Math.round(diff / 1000 / 2))
+                return <span className="text-xs text-gray-400">({blocks.toLocaleString('fr-FR')} blocs)</span>
+              })()}
+            </div>
           </div>
 
           {syncError && <p className="text-sm text-red-400">{syncError}</p>}
