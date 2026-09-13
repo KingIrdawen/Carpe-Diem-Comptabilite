@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchAllContractEvents } from '@/lib/fetchEvents'
+import { fetchAllContractEvents, FetchDebugInfo } from '@/lib/fetchEvents'
 import { insertEvents, updateLastSyncedBlock, initDb } from '@/lib/db'
 import { publicClient } from '@/lib/viemClient'
 
@@ -35,7 +35,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Plage de dates invalide' }, { status: 400 })
     }
 
-    const events = await fetchAllContractEvents(fromBlock, toBlock)
+    const debugInfo: FetchDebugInfo = { fromBlock: '', toBlock: '', chunkCount: 0, rawLogs: 0, decoded: 0, failed: 0 }
+    const events = await fetchAllContractEvents(fromBlock, toBlock, debugInfo)
 
     const toInsert = events.map(e => ({
       type: e.type,
@@ -51,8 +52,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       synced: toInsert.length,
-      fromBlock: fromBlock.toString(),
-      toBlock: toBlock.toString(),
+      debug: debugInfo,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

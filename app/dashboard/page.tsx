@@ -95,7 +95,9 @@ export default function DashboardPage() {
       })
       const data = await res.json()
       if (!res.ok) { setSyncError(data.error); return }
-      setSyncSuccess(`✓ ${data.synced} événement(s) synchronisé(s)`)
+      const d = data.debug
+      const debugMsg = d ? ` | blocs ${d.fromBlock}→${d.toBlock} (${d.chunkCount} chunks) | logs bruts: ${d.rawLogs} | décodés: ${d.decoded} | échecs décodage: ${d.failed}${d.rpcError ? ' | erreur RPC: ' + d.rpcError : ''}` : ''
+      setSyncSuccess(`✓ ${data.synced} événement(s) synchronisé(s)${debugMsg}`)
       loadData()
     } catch (e) {
       setSyncError(e instanceof Error ? e.message : 'Erreur sync')

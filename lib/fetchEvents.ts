@@ -14,13 +14,22 @@ export interface DecodedEvent {
   args: Record<string, unknown>
 }
 
-async function fetchChunk(fromBlock: bigint, toBlock: bigint): Promise<DecodedEvent[]> {
+export interface ChunkDebug {
+  rawLogs: number
+  decoded: number
+  failed: number
+  rpcError?: string
+}
+
+async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug): Promise<DecodedEvent[]> {
   try {
     const logs = await publicClient.getLogs({
       address: CARPE_ESCROW_ADDRESS,
       fromBlock,
       toBlock,
     })
+
+    if (debug) debug.rawLogs += logs.length
 
     const events: DecodedEvent[] = []
     for (const log of logs) {
@@ -37,17 +46,29 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint): Promise<DecodedEv
           timestamp: 0,
           args: decoded.args as Record<string, unknown>,
         })
+        if (debug) debug.decoded++
       } catch {
-        // Log non reconnu dans notre ABI
+        if (debug) debug.failed++
       }
     }
     return events
-  } catch {
+  } catch (e) {
+    if (debug) debug.rpcError = e instanceof Error ? e.message : String(e)
     return []
   }
 }
 
-export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?: bigint): Promise<DecodedEvent[]> {
+export interface FetchDebugInfo {
+  fromBlock: string
+  toBlock: string
+  chunkCount: number
+  rawLogs: number
+  decoded: number
+  failed: number
+  rpcError?: string
+}
+
+export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?: bigint, debugOut?: FetchDebugInfo): Promise<DecodedEvent[]> {
   const latestBlock = toBlock ?? await publicClient.getBlockNumber()
 
   const chunks: Array<{ from: bigint; to: bigint }> = []
@@ -60,11 +81,26 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?:
     current = end + 1n
   }
 
+  if (debugOut) {
+    debugOut.fromBlock = fromBlock.toString()
+    debugOut.toBlock = latestBlock.toString()
+    debugOut.chunkCount = chunks.length
+  }
+
+  const chunkDebug: ChunkDebug = { rawLogs: 0, decoded: 0, failed: 0 }
+
   const allEvents: DecodedEvent[] = []
   for (let i = 0; i < chunks.length; i += PARALLEL_CHUNKS) {
     const batch = chunks.slice(i, i + PARALLEL_CHUNKS)
-    const results = await Promise.all(batch.map(c => fetchChunk(c.from, c.to)))
+    const results = await Promise.all(batch.map(c => fetchChunk(c.from, c.to, chunkDebug)))
     allEvents.push(...results.flat())
+  }
+
+  if (debugOut) {
+    debugOut.rawLogs = chunkDebug.rawLogs
+    debugOut.decoded = chunkDebug.decoded
+    debugOut.failed = chunkDebug.failed
+    if (chunkDebug.rpcError) debugOut.rpcError = chunkDebug.rpcError
   }
 
   if (allEvents.length === 0) return []
