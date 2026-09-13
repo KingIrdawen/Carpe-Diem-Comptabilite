@@ -130,20 +130,15 @@ export default function DashboardPage() {
     setSyncSuccess(null)
     setSyncProgress(null)
 
-    // Semaine par semaine depuis le déploiement (8 mai 2026) jusqu'à aujourd'hui
-    const DEPLOY_DATE = new Date('2026-05-08')
-    const today = new Date()
-    const weeks: { start: string; end: string }[] = []
-    let cur = new Date(DEPLOY_DATE)
-    while (cur < today) {
-      const next = new Date(cur)
-      next.setDate(next.getDate() + 7)
-      weeks.push({
-        start: cur.toISOString().slice(0, 10),
-        end: (next > today ? today : next).toISOString().slice(0, 10),
-      })
-      cur = next
-    }
+    // Reset old synced_ranges so stale records don't pollute the calendar
+    await fetch('/api/sync-reset', { method: 'POST' }).catch(() => null)
+
+    const DEPLOY_DATE = '2026-05-08'
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    // Use the same calendar week boundaries as SyncCalendar (starting Jan 1)
+    const allWeeks = generateCalendarWeeks(2026)
+    const weeks = allWeeks.filter(w => w.end >= DEPLOY_DATE && w.start <= todayStr)
 
     let totalSynced = 0
     const failed: string[] = []
@@ -298,15 +293,11 @@ export default function DashboardPage() {
   )
 }
 
-function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
-  const today = new Date()
-  const YEAR = 2026
-
-  // All weeks of 2026 (Jan 1 → Dec 31)
-  const weeks: { start: string; end: string; label: string; month: string; future: boolean }[] = []
-  let cur = new Date(`${YEAR}-01-01`)
+function generateCalendarWeeks(year: number) {
+  const weeks: { start: string; end: string; label: string; month: string }[] = []
+  let cur = new Date(`${year}-01-01`)
   let weekNum = 1
-  const yearEnd = new Date(`${YEAR}-12-31`)
+  const yearEnd = new Date(`${year}-12-31`)
   while (cur <= yearEnd) {
     const end = new Date(cur)
     end.setDate(end.getDate() + 6)
@@ -316,24 +307,38 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
       end: endCapped.toISOString().slice(0, 10),
       label: `S${weekNum}`,
       month: cur.toLocaleString('fr-FR', { month: 'short' }),
-      future: cur > today,
     })
     cur = new Date(end)
     cur.setDate(cur.getDate() + 1)
     weekNum++
   }
+  return weeks
+}
 
-  // A week is synced if any recorded range overlaps with it
+function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const YEAR = 2026
+
+  const weeks = generateCalendarWeeks(YEAR).map(w => ({
+    ...w,
+    future: w.start > todayStr,
+  }))
+
+  // A week is synced only when there is a recorded range whose start matches exactly
+  // (handleFullSync records ranges aligned to these exact calendar week boundaries)
   function isSynced(weekStart: string, weekEnd: string) {
-    return syncedRanges.some(r => r.start <= weekEnd && r.end >= weekStart)
+    if (weekEnd > todayStr) return false // partial/future week never green
+    return syncedRanges.some(r => r.start === weekStart)
   }
 
-  // Group weeks by month label
   const byMonth: Record<string, typeof weeks> = {}
   for (const w of weeks) {
     if (!byMonth[w.month]) byMonth[w.month] = []
     byMonth[w.month].push(w)
   }
+
+  const syncedCount = weeks.filter(w => isSynced(w.start, w.end)).length
+  const pastCount = weeks.filter(w => !w.future).length
 
   return (
     <section className="border border-gray-700 rounded-xl p-5 space-y-3">
@@ -352,7 +357,7 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
                     className={`w-9 h-7 rounded text-xs flex items-center justify-center font-mono cursor-default
                       ${synced ? 'bg-green-600 text-white'
                         : w.future ? 'bg-gray-800 text-gray-600'
-                        : 'bg-gray-600 text-gray-200'}`}
+                        : 'bg-gray-400 text-gray-800'}`}
                   >
                     {w.label}
                   </div>
@@ -363,9 +368,9 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
         ))}
       </div>
       <div className="flex items-center gap-4 text-xs text-gray-500">
-        <span>{syncedRanges.length} semaine(s) synchronisée(s)</span>
+        <span>{syncedCount}/{pastCount} semaine(s) synchronisée(s)</span>
         <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-green-600" /> synchronisée</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-600" /> non synchronisée</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-400" /> non synchronisée</span>
         <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-800" /> future</span>
       </div>
     </section>

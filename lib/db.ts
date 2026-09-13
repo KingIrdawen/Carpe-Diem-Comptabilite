@@ -97,6 +97,10 @@ export async function getSyncedRanges(): Promise<{ start_date: string; end_date:
   return rows as { start_date: string; end_date: string }[]
 }
 
+export async function clearSyncedRanges() {
+  await sql`DELETE FROM synced_ranges`
+}
+
 export async function getSyncStatus() {
   const rows = await sql`SELECT last_synced_block, last_synced_at FROM sync_state WHERE id = 1`
   return rows[0] ?? { last_synced_block: 45717327, last_synced_at: null }
