@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [syncProgress, setSyncProgress] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
+  const [repairing, setRepairing] = useState(false)
   const [startDate, setStartDate] = useState(subtractDays(30))
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
   const router = useRouter()
@@ -203,6 +204,27 @@ export default function DashboardPage() {
     setSyncProgress(null)
   }
 
+  async function handleRepairTimestamps() {
+    setRepairing(true)
+    setSyncError(null)
+    setSyncSuccess(null)
+    try {
+      const res = await fetch('/api/fix-timestamps', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.fixed === 0) {
+        setSyncSuccess('✓ Aucun timestamp manquant — tout est déjà correct')
+      } else {
+        setSyncSuccess(`✓ ${data.fixed}/${data.total} timestamp(s) réparé(s)`)
+        loadData()
+      }
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'Erreur réparation')
+    } finally {
+      setRepairing(false)
+    }
+  }
+
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
@@ -290,6 +312,17 @@ export default function DashboardPage() {
           {syncProgress && <p className="text-sm text-blue-400 animate-pulse">{syncProgress}</p>}
           {syncError && <p className="text-sm text-red-400">{syncError}</p>}
           {syncSuccess && <p className="text-sm text-green-400">{syncSuccess}</p>}
+
+          <div className="border-t border-gray-700 pt-3 flex items-center gap-3">
+            <button
+              onClick={handleRepairTimestamps}
+              disabled={syncing || repairing}
+              className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 transition-colors underline underline-offset-2"
+            >
+              {repairing ? 'Réparation…' : 'Réparer les timestamps manquants'}
+            </button>
+            <span className="text-xs text-gray-600">Corrige les écarts entre Dashboard et Comptabilité mensuelle</span>
+          </div>
         </section>
 
         <SyncCalendar syncedRanges={syncedRanges} />
