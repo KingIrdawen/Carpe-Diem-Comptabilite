@@ -3,7 +3,7 @@ import { publicClient } from './viemClient'
 import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from './contracts'
 
 const DEPLOY_BLOCK = 45_717_327n
-const CHUNK_SIZE = 3_500n
+const CHUNK_SIZE = 2_000n
 const PARALLEL_CHUNKS = 30
 
 export interface DecodedEvent {
