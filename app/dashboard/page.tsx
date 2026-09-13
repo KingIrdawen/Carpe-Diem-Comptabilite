@@ -17,26 +17,50 @@ interface Stats {
   userCount: number
 }
 
+interface SyncStatus {
+  lastSyncedBlock: string
+  lastSyncedAt: string | null
+}
+
+const PRESETS = [
+  { label: 'Cette semaine', days: 7 },
+  { label: 'Ce mois', days: 30 },
+  { label: '3 mois', days: 90 },
+  { label: 'Tout (depuis déploiement)', days: 130 },
+]
+
+function subtractDays(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
+  const [startDate, setStartDate] = useState(subtractDays(30))
+  const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
   const router = useRouter()
 
-  useEffect(() => {
+  function loadData() {
+    setLoading(true)
+    setError(null)
     fetch('/api/events')
       .then(async r => {
         if (r.status === 401 || r.status === 403) { router.push('/'); return null }
         const text = await r.text()
-        try {
-          return JSON.parse(text)
-        } catch {
-          throw new Error(`Réponse serveur invalide (timeout ?) : ${text.slice(0, 120)}`)
-        }
+        try { return JSON.parse(text) }
+        catch { throw new Error(`Réponse serveur invalide : ${text.slice(0, 120)}`) }
       })
       .then(data => {
         if (!data) return
         if (data.error) { setError(data.error); return }
+        setSyncStatus(data.syncStatus)
         const s: Stats = {
           totalDepositsUsdc: data.deposits.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0),
           totalChargedUsdc: data.charges.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0) +
@@ -53,13 +77,40 @@ export default function DashboardPage() {
         }
         setStats(s)
       })
-      .catch((e: Error) => setError(e.message ?? 'Impossible de charger les données'))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [router])
+  }
+
+  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSync() {
+    setSyncing(true)
+    setSyncError(null)
+    setSyncSuccess(null)
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate, endDate }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setSyncError(data.error); return }
+      setSyncSuccess(`✓ ${data.synced} événement(s) synchronisé(s)`)
+      loadData()
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'Erreur sync')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
+  }
+
+  function fmt(n: number, d = 2) {
+    return n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })
   }
 
   return (
@@ -74,37 +125,81 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="p-6 max-w-7xl mx-auto space-y-8">
+      <main className="p-6 max-w-7xl mx-auto space-y-6">
+
+        {/* Panneau de synchronisation */}
+        <section className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Synchronisation blockchain</h3>
+              {syncStatus?.lastSyncedAt ? (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Dernière sync : {new Date(syncStatus.lastSyncedAt).toLocaleString('fr-FR')}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-0.5">Aucune synchronisation effectuée</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map(p => (
+              <button
+                key={p.label}
+                onClick={() => { setStartDate(subtractDays(p.days)); setEndDate(new Date().toISOString().slice(0, 10)) }}
+                className="px-3 py-1 rounded-full text-xs bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Du</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Au</label>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            </div>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
+            >
+              {syncing ? 'Synchronisation…' : 'Synchroniser'}
+            </button>
+          </div>
+
+          {syncError && <p className="text-sm text-red-400">{syncError}</p>}
+          {syncSuccess && <p className="text-sm text-green-400">{syncSuccess}</p>}
+        </section>
+
         <h2 className="text-2xl font-semibold">Tableau de bord</h2>
 
-        {loading && <p className="text-gray-400 animate-pulse">Chargement des données blockchain…</p>}
-        {error && <p className="text-red-400">{error}</p>}
+        {loading && <p className="text-gray-400 animate-pulse">Chargement depuis la base de données…</p>}
+        {error && <p className="text-red-400 text-sm bg-red-400/10 rounded-lg p-3">{error}</p>}
 
         {stats && (
           <>
             <section>
               <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Flux USDC</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <KpiCard label="Dépôts utilisateurs" value={`${stats.totalDepositsUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USDC`} sub={`${stats.depositCount} transactions · ${stats.userCount} utilisateurs`} color="green" />
-                <KpiCard label="Charges (services)" value={`${stats.totalChargedUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USDC`} sub="Converties en DIEM" color="blue" />
-                <KpiCard label="Routes externes" value={`${stats.totalExternalUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USDC`} sub="Float + Treasury" color="purple" />
-                <KpiCard label="Migrations" value={`${stats.totalMigratedUsdc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USDC`} sub="Crédits remboursés" color="orange" />
+                <KpiCard label="Dépôts utilisateurs" value={`${fmt(stats.totalDepositsUsdc)} USDC`} sub={`${stats.depositCount} tx · ${stats.userCount} utilisateurs`} color="green" />
+                <KpiCard label="Charges (services)" value={`${fmt(stats.totalChargedUsdc)} USDC`} sub="Converties en DIEM" color="blue" />
+                <KpiCard label="Routes externes" value={`${fmt(stats.totalExternalUsdc)} USDC`} sub="Float + Treasury" color="purple" />
+                <KpiCard label="Migrations" value={`${fmt(stats.totalMigratedUsdc)} USDC`} sub="Crédits remboursés" color="orange" />
               </div>
             </section>
-
             <section>
               <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Flux DIEM</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <KpiCard label="Frais protocole" value={`${stats.totalFeesDiem.toLocaleString('fr-FR', { minimumFractionDigits: 4 })} DIEM`} sub="Fees sur charges" color="green" />
-                <KpiCard label="Retraits providers" value={`${stats.totalProviderWithdrawalsDiem.toLocaleString('fr-FR', { minimumFractionDigits: 4 })} DIEM`} sub="Claimés par providers" color="red" />
-                <KpiCard label="Treasury (total)" value={`${stats.totalTreasuryDiem.toLocaleString('fr-FR', { minimumFractionDigits: 4 })} DIEM`} sub="Vers Treasury Safe" color="yellow" />
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Rebates</h3>
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
-                <KpiCard label="USDC en rebates" value={`${stats.totalRebatesUsdcIn.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} USDC`} sub="Pool de rebates providers" color="blue" />
+                <KpiCard label="Frais protocole" value={`${fmt(stats.totalFeesDiem, 4)} DIEM`} sub="Fees sur charges" color="green" />
+                <KpiCard label="Retraits providers" value={`${fmt(stats.totalProviderWithdrawalsDiem, 4)} DIEM`} sub="Claimés par providers" color="red" />
+                <KpiCard label="Treasury" value={`${fmt(stats.totalTreasuryDiem, 4)} DIEM`} sub="Vers Treasury Safe" color="yellow" />
               </div>
             </section>
           </>

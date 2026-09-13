@@ -47,8 +47,8 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint): Promise<DecodedEv
   }
 }
 
-export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK): Promise<DecodedEvent[]> {
-  const latestBlock = await publicClient.getBlockNumber()
+export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?: bigint): Promise<DecodedEvent[]> {
+  const latestBlock = toBlock ?? await publicClient.getBlockNumber()
 
   const chunks: Array<{ from: bigint; to: bigint }> = []
   let current = fromBlock
