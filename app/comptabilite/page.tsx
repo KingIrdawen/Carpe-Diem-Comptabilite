@@ -28,6 +28,17 @@ export default function ComptabilitePage() {
       .then(data => {
         const byMonth: Record<string, MonthData> = {}
 
+        // Si le timestamp est absent, on l'estime depuis le numéro de bloc
+        // (déploiement : bloc 45 717 327 = 8 mai 2026, ~2 sec/bloc)
+        const DEPLOY_BLOCK = 45_717_327
+        const DEPLOY_TS = Math.floor(new Date('2026-05-08T00:00:00Z').getTime() / 1000)
+        function resolveTs(ts: number, blockNumber: string): number {
+          if (ts) return ts
+          const bn = parseInt(blockNumber || '0')
+          if (!bn) return 0
+          return DEPLOY_TS + (bn - DEPLOY_BLOCK) * 2
+        }
+
         function key(ts: number) {
           if (!ts) return null
           const d = new Date(ts * 1000)
@@ -48,38 +59,38 @@ export default function ComptabilitePage() {
           return byMonth[k]
         }
 
-        data.deposits.forEach((e: { timestamp: number; amountUsdc: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.deposits.forEach((e: { timestamp: number; blockNumber: string; amountUsdc: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).depositsUsdc += e.amountUsdc
         })
-        data.charges.forEach((e: { timestamp: number; amountUsdc: number; feesDiem: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.charges.forEach((e: { timestamp: number; blockNumber: string; amountUsdc: number; feesDiem: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).chargesUsdc += e.amountUsdc
           ensure(k).feesProtocol += e.feesDiem
         })
-        data.batchCharges.forEach((e: { timestamp: number; totalUsdc: number; feesDiem: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.batchCharges.forEach((e: { timestamp: number; blockNumber: string; totalUsdc: number; feesDiem: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).chargesUsdc += e.totalUsdc
           ensure(k).feesProtocol += e.feesDiem
         })
-        data.externalRoutes.forEach((e: { timestamp: number; toFloatUsdc: number; toTreasuryUsdc: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.externalRoutes.forEach((e: { timestamp: number; blockNumber: string; toFloatUsdc: number; toTreasuryUsdc: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).externalUsdc += e.toFloatUsdc + e.toTreasuryUsdc
         })
-        data.migrations.forEach((e: { timestamp: number; amountUsdc: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.migrations.forEach((e: { timestamp: number; blockNumber: string; amountUsdc: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).migrationsUsdc += e.amountUsdc
         })
-        data.providerWithdrawals.forEach((e: { timestamp: number; amountDiem: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.providerWithdrawals.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).providerWithdrawals += e.amountDiem
         })
-        data.rebates.forEach((e: { timestamp: number; usdcIn: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.rebates.forEach((e: { timestamp: number; blockNumber: string; usdcIn: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).rebatesUsdc += e.usdcIn
         })
-        data.treasuryFunds.forEach((e: { timestamp: number; amountDiem: number }) => {
-          const k = key(e.timestamp); if (!k) return
+        data.treasuryFunds.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number }) => {
+          const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).treasuryDiem += e.amountDiem
         })
 
