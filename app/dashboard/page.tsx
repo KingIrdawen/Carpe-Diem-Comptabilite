@@ -146,20 +146,34 @@ export default function DashboardPage() {
     }
 
     let totalSynced = 0
-    try {
-      for (let i = 0; i < weeks.length; i++) {
-        setSyncProgress(`Semaine ${i + 1} / ${weeks.length} (${weeks[i].start} → ${weeks[i].end})…`)
-        totalSynced += await syncRange(weeks[i].start, weeks[i].end)
-        if (i < weeks.length - 1) await new Promise(r => setTimeout(r, 1000))
+    const failed: string[] = []
+
+    for (let i = 0; i < weeks.length; i++) {
+      const w = weeks[i]
+      setSyncProgress(`Semaine ${i + 1} / ${weeks.length} (${w.start} → ${w.end})…`)
+
+      let ok = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 3000 * attempt))
+          totalSynced += await syncRange(w.start, w.end)
+          ok = true
+          break
+        } catch { /* retry */ }
       }
-      setSyncSuccess(`✓ Historique complet synchronisé — ${totalSynced} événement(s) au total`)
-      loadData()
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : 'Erreur sync')
-    } finally {
-      setSyncing(false)
-      setSyncProgress(null)
+      if (!ok) failed.push(`${w.start}→${w.end}`)
+
+      if (i < weeks.length - 1) await new Promise(r => setTimeout(r, 2000))
     }
+
+    if (failed.length === 0) {
+      setSyncSuccess(`✓ Historique complet synchronisé — ${totalSynced} événement(s)`)
+    } else {
+      setSyncSuccess(`✓ ${totalSynced} événement(s) synchronisé(s) — ${failed.length} semaine(s) en échec : ${failed.join(', ')}`)
+    }
+    loadData()
+    setSyncing(false)
+    setSyncProgress(null)
   }
 
   async function handleLogout() {
