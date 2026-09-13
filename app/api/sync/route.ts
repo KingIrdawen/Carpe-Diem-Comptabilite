@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchAllContractEvents, FetchDebugInfo } from '@/lib/fetchEvents'
-import { insertEvents, updateLastSyncedBlock, initDb } from '@/lib/db'
+import { insertEvents, updateLastSyncedBlock, recordSyncedRange, initDb } from '@/lib/db'
 import { publicClient } from '@/lib/viemClient'
 
 export const dynamic = 'force-dynamic'
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
 
     await insertEvents(toInsert)
     await updateLastSyncedBlock(toBlock)
+    await recordSyncedRange(startDate, endDate)
 
     return NextResponse.json({
       ok: true,

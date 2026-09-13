@@ -39,6 +39,15 @@ export async function initDb() {
     VALUES (1, 45717327)
     ON CONFLICT (id) DO NOTHING
   `
+  await sql`
+    CREATE TABLE IF NOT EXISTS synced_ranges (
+      id SERIAL PRIMARY KEY,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      synced_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(start_date, end_date)
+    )
+  `
 }
 
 export async function getLastSyncedBlock(): Promise<bigint> {
@@ -73,6 +82,18 @@ export async function insertEvents(events: {
 
 export async function getEventsFromDb() {
   return sql`SELECT * FROM events ORDER BY timestamp ASC`
+}
+
+export async function recordSyncedRange(startDate: string, endDate: string) {
+  await sql`
+    INSERT INTO synced_ranges (start_date, end_date)
+    VALUES (${startDate}, ${endDate})
+    ON CONFLICT (start_date, end_date) DO UPDATE SET synced_at = NOW()
+  `
+}
+
+export async function getSyncedRanges(): Promise<{ start_date: string; end_date: string }[]> {
+  return sql`SELECT start_date, end_date FROM synced_ranges ORDER BY start_date ASC`
 }
 
 export async function getSyncStatus() {

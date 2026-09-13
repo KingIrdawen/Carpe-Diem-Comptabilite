@@ -22,6 +22,11 @@ interface SyncStatus {
   lastSyncedAt: string | null
 }
 
+interface SyncedRange {
+  start: string
+  end: string
+}
+
 const PRESETS = [
   { label: 'Cette semaine', days: 7 },
   { label: 'Ce mois', days: 30 },
@@ -38,6 +43,7 @@ function subtractDays(days: number): string {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [syncedRanges, setSyncedRanges] = useState<SyncedRange[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
@@ -62,6 +68,7 @@ export default function DashboardPage() {
         if (!data) return
         if (data.error) { setError(data.error); return }
         setSyncStatus(data.syncStatus)
+        setSyncedRanges(data.syncedRanges ?? [])
         const s: Stats = {
           totalDepositsUsdc: data.deposits.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0),
           totalChargedUsdc: data.charges.reduce((a: number, d: { amountUsdc: number }) => a + d.amountUsdc, 0) +
@@ -143,6 +150,7 @@ export default function DashboardPage() {
       for (let i = 0; i < weeks.length; i++) {
         setSyncProgress(`Semaine ${i + 1} / ${weeks.length} (${weeks[i].start} → ${weeks[i].end})…`)
         totalSynced += await syncRange(weeks[i].start, weeks[i].end)
+        if (i < weeks.length - 1) await new Promise(r => setTimeout(r, 1000))
       }
       setSyncSuccess(`✓ Historique complet synchronisé — ${totalSynced} événement(s) au total`)
       loadData()
@@ -243,6 +251,8 @@ export default function DashboardPage() {
           {syncSuccess && <p className="text-sm text-green-400">{syncSuccess}</p>}
         </section>
 
+        <SyncCalendar syncedRanges={syncedRanges} />
+
         <h2 className="text-2xl font-semibold">Tableau de bord</h2>
 
         {loading && <p className="text-gray-400 animate-pulse">Chargement depuis la base de données…</p>}
@@ -271,6 +281,71 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  )
+}
+
+function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
+  const DEPLOY = new Date('2026-05-08')
+  const today = new Date()
+
+  // Build all weeks since deployment
+  const weeks: { start: string; end: string; label: string; month: string }[] = []
+  let cur = new Date(DEPLOY)
+  let weekNum = 1
+  while (cur <= today) {
+    const end = new Date(cur)
+    end.setDate(end.getDate() + 6)
+    const endCapped = end > today ? today : end
+    weeks.push({
+      start: cur.toISOString().slice(0, 10),
+      end: endCapped.toISOString().slice(0, 10),
+      label: `S${weekNum}`,
+      month: cur.toLocaleString('fr-FR', { month: 'short', year: '2-digit' }),
+    })
+    cur = new Date(end)
+    cur.setDate(cur.getDate() + 1)
+    weekNum++
+  }
+
+  // Build set of synced start dates for O(1) lookup
+  const syncedStarts = new Set(syncedRanges.map(r => r.start))
+
+  // Group weeks by month label
+  const byMonth: Record<string, typeof weeks> = {}
+  for (const w of weeks) {
+    if (!byMonth[w.month]) byMonth[w.month] = []
+    byMonth[w.month].push(w)
+  }
+
+  return (
+    <section className="border border-gray-700 rounded-xl p-5 space-y-3">
+      <h3 className="font-semibold text-sm">Calendrier des synchronisations</h3>
+      <div className="space-y-2">
+        {Object.entries(byMonth).map(([month, ws]) => (
+          <div key={month} className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 w-14 shrink-0">{month}</span>
+            <div className="flex flex-wrap gap-1">
+              {ws.map(w => {
+                const synced = syncedStarts.has(w.start)
+                return (
+                  <div
+                    key={w.start}
+                    title={`${w.start} → ${w.end}`}
+                    className={`w-9 h-7 rounded text-xs flex items-center justify-center font-mono cursor-default
+                      ${synced ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-500'}`}
+                  >
+                    {w.label}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500">
+        {syncedRanges.length} / {weeks.length} semaines synchronisées
+      </p>
+    </section>
   )
 }
 

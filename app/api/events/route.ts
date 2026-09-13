@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getEventsFromDb, getSyncStatus, initDb } from '@/lib/db'
+import { getEventsFromDb, getSyncStatus, getSyncedRanges, initDb } from '@/lib/db'
 import { formatUsdc, formatDiem } from '@/lib/viemClient'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +16,7 @@ export async function GET() {
     await initDb()
     const rows = await getEventsFromDb()
     const syncStatus = await getSyncStatus()
+    const syncedRanges = await getSyncedRanges()
 
     const deposits = rows.filter(r => r.type === 'Deposit' || r.type === 'X402Pull').map(r => ({
       type: r.type === 'X402Pull' ? 'x402pull' : 'deposit',
@@ -90,6 +91,7 @@ export async function GET() {
         lastSyncedBlock: String(syncStatus.last_synced_block),
         lastSyncedAt: syncStatus.last_synced_at,
       },
+      syncedRanges: syncedRanges.map(r => ({ start: r.start_date, end: r.end_date })),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
