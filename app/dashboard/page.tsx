@@ -112,16 +112,48 @@ export default function DashboardPage() {
     setSyncError(null)
     setSyncSuccess(null)
     setSyncProgress(null)
-    try {
-      const synced = await syncRange(startDate, endDate)
-      setSyncSuccess(`✓ ${synced} événement(s) synchronisé(s)`)
-      loadData()
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : 'Erreur sync')
-    } finally {
-      setSyncing(false)
-      setSyncProgress(null)
+
+    // Split into 7-day chunks to stay under Vercel's 10s function timeout
+    const chunks: { start: string; end: string }[] = []
+    let cur = new Date(startDate)
+    const end = new Date(endDate)
+    while (cur < end) {
+      const next = new Date(cur)
+      next.setDate(next.getDate() + 7)
+      chunks.push({
+        start: cur.toISOString().slice(0, 10),
+        end: (next > end ? end : next).toISOString().slice(0, 10),
+      })
+      cur = next
     }
+
+    let totalSynced = 0
+    const failed: string[] = []
+
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i]
+      if (chunks.length > 1) setSyncProgress(`Partie ${i + 1}/${chunks.length} (${c.start} → ${c.end})…`)
+      let ok = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 3000 * attempt))
+          totalSynced += await syncRange(c.start, c.end)
+          ok = true
+          break
+        } catch { /* retry */ }
+      }
+      if (!ok) failed.push(`${c.start}→${c.end}`)
+      if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 1000))
+    }
+
+    if (failed.length === 0) {
+      setSyncSuccess(`✓ ${totalSynced} événement(s) synchronisé(s)`)
+    } else {
+      setSyncError(`${totalSynced} événement(s) synchronisé(s) — ${failed.length} tranche(s) en échec : ${failed.join(', ')}`)
+    }
+    loadData()
+    setSyncing(false)
+    setSyncProgress(null)
   }
 
   async function handleFullSync() {
