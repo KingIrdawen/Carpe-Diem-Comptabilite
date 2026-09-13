@@ -17,8 +17,9 @@ export async function GET() {
     const rows = await getEventsFromDb()
     const syncStatus = await getSyncStatus()
 
-    const deposits = rows.filter(r => r.type === 'Deposit').map(r => ({
-      type: 'deposit', txHash: r.tx_hash, blockNumber: String(r.block_number),
+    const deposits = rows.filter(r => r.type === 'Deposit' || r.type === 'X402Pull').map(r => ({
+      type: r.type === 'X402Pull' ? 'x402pull' : 'deposit',
+      txHash: r.tx_hash, blockNumber: String(r.block_number),
       timestamp: Number(r.timestamp), user: r.args.user,
       amountUsdc: safeUsdc(r.args, 'amount'),
     }))
@@ -61,6 +62,12 @@ export async function GET() {
       amountUsdc: safeUsdc(r.args, 'amount'),
     }))
 
+    const idleRebates = rows.filter(r => r.type === 'IdleRebateCredited').map(r => ({
+      type: 'idleRebate', txHash: r.tx_hash, blockNumber: String(r.block_number),
+      timestamp: Number(r.timestamp), provider: r.args.provider,
+      diemAmount: safeDiem(r.args, 'diemAmount'),
+    }))
+
     const rebates = rows.filter(r => r.type === 'RebateDistributed').map(r => ({
       type: 'rebate', txHash: r.tx_hash, blockNumber: String(r.block_number),
       timestamp: Number(r.timestamp),
@@ -73,12 +80,12 @@ export async function GET() {
       type: 'treasuryFund', txHash: r.tx_hash, blockNumber: String(r.block_number),
       timestamp: Number(r.timestamp), to: r.args.to,
       amountDiem: safeDiem(r.args, 'amount'),
-      reason: r.args.reason,
+      source: r.args.source,
     }))
 
     return NextResponse.json({
       deposits, charges, batchCharges, externalRoutes,
-      providerWithdrawals, migrations, rebates, treasuryFunds,
+      providerWithdrawals, migrations, rebates, idleRebates, treasuryFunds,
       syncStatus: {
         lastSyncedBlock: String(syncStatus.last_synced_block),
         lastSyncedAt: syncStatus.last_synced_at,

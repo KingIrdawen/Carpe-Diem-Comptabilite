@@ -30,6 +30,15 @@ export const CARPE_ESCROW_ABI = [
   },
   {
     type: 'event',
+    name: 'X402Pull',
+    inputs: [
+      { name: 'user', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'nonce', type: 'bytes32', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
     name: 'Charge',
     inputs: [
       { name: 'user', type: 'address', indexed: true },
@@ -54,6 +63,15 @@ export const CARPE_ESCROW_ABI = [
   },
   {
     type: 'event',
+    name: 'BatchProviderCredited',
+    inputs: [
+      { name: 'provider', type: 'address', indexed: true },
+      { name: 'diemShare', type: 'uint256', indexed: false },
+      { name: 'pendingUsdcWeight', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
     name: 'ExternalRouteSettled',
     inputs: [
       { name: 'user', type: 'address', indexed: true },
@@ -71,12 +89,11 @@ export const CARPE_ESCROW_ABI = [
   },
   {
     type: 'event',
-    name: 'CreditsMigrated',
+    name: 'IdleRebateCredited',
     inputs: [
-      { name: 'user', type: 'address', indexed: true },
-      { name: 'account', type: 'address', indexed: true },
-      { name: 'amount', type: 'uint256', indexed: false },
-      { name: 'nonce', type: 'bytes32', indexed: true },
+      { name: 'provider', type: 'address', indexed: true },
+      { name: 'diemAmount', type: 'uint256', indexed: false },
+      { name: 'day', type: 'bytes32', indexed: true },
     ],
   },
   {
@@ -95,7 +112,25 @@ export const CARPE_ESCROW_ABI = [
     inputs: [
       { name: 'to', type: 'address', indexed: true },
       { name: 'amount', type: 'uint256', indexed: false },
-      { name: 'reason', type: 'string', indexed: false },
+      { name: 'source', type: 'bytes32', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'CreditsMigrated',
+    inputs: [
+      { name: 'user', type: 'address', indexed: true },
+      { name: 'account', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'nonce', type: 'bytes32', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'FeesCollected',
+    inputs: [
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
     ],
   },
 ] as const
