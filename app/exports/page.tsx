@@ -20,7 +20,10 @@ export default function ExportsPage() {
     setError(null)
     try {
       const res = await fetch(`/api/export?year=${year}&month=${month + 1}`)
-      if (!res.ok) throw new Error('Erreur export')
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? `Erreur ${res.status}`)
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -28,8 +31,8 @@ export default function ExportsPage() {
       a.download = `carpe-diem-compta-${year}-${String(month + 1).padStart(2, '0')}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      setError('Erreur lors de la génération du fichier')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la génération du fichier')
     } finally {
       setLoading(false)
     }
@@ -43,7 +46,7 @@ export default function ExportsPage() {
       </nav>
 
       <main className="p-6 max-w-xl mx-auto space-y-6">
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-6">
+        <div className="border border-gray-700 rounded-2xl p-6 space-y-6">
           <div>
             <h3 className="font-medium mb-1">Export mensuel</h3>
             <p className="text-sm text-gray-400">
@@ -88,7 +91,7 @@ export default function ExportsPage() {
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
 
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-3">
+        <div className="border border-gray-700 rounded-2xl p-6 space-y-3">
           <h3 className="font-medium">Contenu du fichier Excel</h3>
           <ul className="text-sm text-gray-400 space-y-1">
             <li>📥 <strong className="text-gray-200">Feuille 1</strong> — Dépôts utilisateurs (USDC)</li>
