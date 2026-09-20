@@ -46,7 +46,7 @@ export default function ExportsPage() {
       </nav>
 
       <main className="p-6 max-w-xl mx-auto space-y-6">
-        <div className="border border-gray-700 rounded-2xl p-6 space-y-6">
+        <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 space-y-6">
           <div>
             <h3 className="font-medium mb-1">Export mensuel</h3>
             <p className="text-sm text-gray-400">
@@ -91,7 +91,7 @@ export default function ExportsPage() {
           {error && <p className="text-sm text-red-400">{error}</p>}
         </div>
 
-        <div className="border border-gray-700 rounded-2xl p-6 space-y-3">
+        <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 space-y-3">
           <h3 className="font-medium">Contenu du fichier Excel</h3>
           <ul className="text-sm text-gray-400 space-y-1">
             <li>📥 <strong className="text-gray-200">Feuille 1</strong> — Dépôts utilisateurs (USDC)</li>
