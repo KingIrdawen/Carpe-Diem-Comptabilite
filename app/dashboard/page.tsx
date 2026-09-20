@@ -114,19 +114,11 @@ export default function DashboardPage() {
     setSyncSuccess(null)
     setSyncProgress(null)
 
-    // Split into 7-day chunks to stay under Vercel's 10s function timeout
-    const chunks: { start: string; end: string }[] = []
-    let cur = new Date(startDate)
-    const end = new Date(endDate)
-    while (cur < end) {
-      const next = new Date(cur)
-      next.setDate(next.getDate() + 7)
-      chunks.push({
-        start: cur.toISOString().slice(0, 10),
-        end: (next > end ? end : next).toISOString().slice(0, 10),
-      })
-      cur = next
-    }
+    // Use calendar week boundaries so synced_ranges align with the calendar display
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const chunks = generateCalendarWeeks(2026).filter(
+      w => w.end >= startDate && w.start <= endDate && w.start <= todayStr
+    )
 
     let totalSynced = 0
     const failed: string[] = []
