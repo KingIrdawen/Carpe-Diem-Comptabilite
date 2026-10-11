@@ -9,6 +9,7 @@ const PARALLEL_CHUNKS = 30
 export interface DecodedEvent {
   type: string
   txHash: string
+  logIndex: number
   blockNumber: string
   timestamp: number
   args: Record<string, unknown>
@@ -48,6 +49,7 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug
         events.push({
           type: decoded.eventName as string,
           txHash: log.transactionHash ?? '',
+          logIndex: log.logIndex ?? 0,
           blockNumber: log.blockNumber?.toString() ?? '0',
           timestamp: log.blockNumber ? blockTimestamp(log.blockNumber) : 0,
           args,

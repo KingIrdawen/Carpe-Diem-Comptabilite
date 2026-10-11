@@ -115,13 +115,11 @@ export default function DashboardPage() {
       body: JSON.stringify({ startDate: start, endDate: end }),
     })
     const text = await res.text()
-    try {
-      const data = JSON.parse(text)
-      if (!res.ok) throw new Error(data.error)
-      return data.synced ?? 0
-    } catch {
-      throw new Error(`Réponse invalide : ${text.slice(0, 120)}`)
-    }
+    let data
+    try { data = JSON.parse(text) }
+    catch { throw new Error(`HTTP ${res.status} : ${text.slice(0, 120)}`) }
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    return data.synced ?? 0
   }
 
   async function handleSync() {
@@ -143,15 +141,16 @@ export default function DashboardPage() {
       const c = chunks[i]
       if (chunks.length > 1) setSyncProgress(`Partie ${i + 1}/${chunks.length} (${c.start} → ${c.end})…`)
       let ok = false
+      let lastError = ''
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) await new Promise(r => setTimeout(r, 3000 * attempt))
           totalSynced += await syncRange(c.start, c.end)
           ok = true
           break
-        } catch { /* retry */ }
+        } catch (e) { lastError = e instanceof Error ? e.message : String(e) }
       }
-      if (!ok) failed.push(`${c.start}→${c.end}`)
+      if (!ok) failed.push(`${c.start}→${c.end} (${lastError})`)
       if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 1000))
     }
 
@@ -189,15 +188,16 @@ export default function DashboardPage() {
       setSyncProgress(`Semaine ${i + 1} / ${weeks.length} (${w.start} → ${w.end})…`)
 
       let ok = false
+      let lastError = ''
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (attempt > 0) await new Promise(r => setTimeout(r, 3000 * attempt))
           totalSynced += await syncRange(w.start, w.end)
           ok = true
           break
-        } catch { /* retry */ }
+        } catch (e) { lastError = e instanceof Error ? e.message : String(e) }
       }
-      if (!ok) failed.push(`${w.start}→${w.end}`)
+      if (!ok) failed.push(`${w.start}→${w.end} (${lastError})`)
 
       if (i < weeks.length - 1) await new Promise(r => setTimeout(r, 2000))
     }

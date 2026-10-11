@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     const toInsert = events.map(e => ({
       type: e.type,
       tx_hash: e.txHash,
+      log_index: e.logIndex,
       block_number: e.blockNumber,
       timestamp: e.timestamp,
       args: e.args,

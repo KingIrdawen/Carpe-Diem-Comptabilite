@@ -18,9 +18,13 @@ export async function initDb() {
   `
   // Cours DIEM en USDC au moment de la transaction (valorisation USDC = montant DIEM × cours)
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS diem_price_usdc DOUBLE PRECISION`
+  // Un événement est identifié par sa transaction et sa position dans les logs : une même
+  // transaction peut émettre plusieurs événements du même type (ex. un BatchProviderCredited par provider)
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS log_index INT`
+  await sql`DROP INDEX IF EXISTS idx_events_unique`
   await sql`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique
-    ON events(tx_hash, type)
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_events_tx_log
+    ON events(tx_hash, log_index)
   `
   await sql`
     CREATE INDEX IF NOT EXISTS idx_events_timestamp
@@ -69,6 +73,7 @@ export async function updateLastSyncedBlock(block: bigint) {
 export async function insertEvents(events: {
   type: string
   tx_hash: string
+  log_index: number
   block_number: string
   timestamp: number
   args: Record<string, unknown>
@@ -77,15 +82,16 @@ export async function insertEvents(events: {
   for (let i = 0; i < events.length; i += 1000) {
     const batch = events.slice(i, i + 1000)
     await sql`
-      INSERT INTO events (type, tx_hash, block_number, timestamp, args)
+      INSERT INTO events (type, tx_hash, log_index, block_number, timestamp, args)
       SELECT * FROM unnest(
         ${batch.map(e => e.type)}::varchar[],
         ${batch.map(e => e.tx_hash)}::varchar[],
+        ${batch.map(e => e.log_index)}::int[],
         ${batch.map(e => e.block_number)}::bigint[],
         ${batch.map(e => e.timestamp)}::bigint[],
         ${batch.map(e => JSON.stringify(e.args))}::jsonb[]
       )
-      ON CONFLICT (tx_hash, type) DO NOTHING
+      ON CONFLICT (tx_hash, log_index) DO NOTHING
     `
   }
 }
