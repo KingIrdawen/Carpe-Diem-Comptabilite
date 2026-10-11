@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import PrintButton from '@/components/PrintButton'
 
 const MONTHS = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -43,6 +44,7 @@ export default function ExportsPage() {
       <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
         <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
         <h2 className="font-semibold">Exports Excel</h2>
+        <PrintButton className="ml-auto" />
       </nav>
 
       <main className="p-6 max-w-xl mx-auto space-y-6">

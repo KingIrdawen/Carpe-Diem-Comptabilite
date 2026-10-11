@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts'
+import PrintButton from '@/components/PrintButton'
 
 // Palettes catégorielles validées (contraste et daltonisme) pour chaque thème de l'app
 const THEMES = {
@@ -13,11 +14,17 @@ const THEMES = {
 }
 type Theme = typeof THEMES.light
 
+// Thème sombre seulement à l'écran en mode sombre : l'impression est toujours en clair
 const darkQuery = '(prefers-color-scheme: dark)'
+const printQuery = 'print'
 function useTheme(): Theme {
   const dark = useSyncExternalStore(
-    cb => { const mq = matchMedia(darkQuery); mq.addEventListener('change', cb); return () => mq.removeEventListener('change', cb) },
-    () => matchMedia(darkQuery).matches,
+    cb => {
+      const mqs = [matchMedia(darkQuery), matchMedia(printQuery)]
+      mqs.forEach(mq => mq.addEventListener('change', cb))
+      return () => mqs.forEach(mq => mq.removeEventListener('change', cb))
+    },
+    () => matchMedia(darkQuery).matches && !matchMedia(printQuery).matches,
     () => true,
   )
   return dark ? THEMES.dark : THEMES.light
@@ -158,6 +165,7 @@ export default function StatistiquesPage() {
       <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
         <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
         <h2 className="font-semibold">Statistiques</h2>
+        <PrintButton className="ml-auto" />
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
@@ -190,8 +198,8 @@ export default function StatistiquesPage() {
                 <YAxis allowDecimals={false} tick={axisTick} axisLine={false} tickLine={false} width={40} />
                 <Tooltip content={<ChartTooltip unit="" />} cursor={{ fill: t.cursor }} />
                 <Legend content={<ChartLegend order={['Utilisateurs actifs', 'Nouveaux utilisateurs']} />} />
-                <Bar dataKey="activeUsers" name="Utilisateurs actifs" fill={SERIES[0]} maxBarSize={24} radius={[4, 4, 0, 0]} />
-                <Line dataKey="newUsers" name="Nouveaux utilisateurs" stroke={SERIES[1]} strokeWidth={2}
+                <Bar dataKey="activeUsers" name="Utilisateurs actifs" fill={SERIES[0]} maxBarSize={24} isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                <Line dataKey="newUsers" name="Nouveaux utilisateurs" stroke={SERIES[1]} strokeWidth={2} isAnimationActive={false}
                   dot={dot(SERIES[1])} activeDot={activeDot}>
                   <LabelList content={<EndLabel count={months.length} text="Nouveaux" fill={t.label} />} />
                 </Line>
@@ -205,13 +213,13 @@ export default function StatistiquesPage() {
                 <YAxis tickFormatter={fmtCompact} tick={axisTick} axisLine={false} tickLine={false} width={48} />
                 <Tooltip content={<ChartTooltip unit=" USDC" />} cursor={{ fill: t.cursor }} />
                 <Legend content={<ChartLegend order={['Dépôts', 'Charges', 'Frais protocole (valorisation)', 'Retraits providers (valorisation)']} />} />
-                <Bar dataKey="depositsUsdc" name="Dépôts" fill={SERIES[0]} maxBarSize={24} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="chargesUsdc" name="Charges" fill={SERIES[1]} maxBarSize={24} radius={[4, 4, 0, 0]} />
-                <Line dataKey="feesUsdc" name="Frais protocole (valorisation)" stroke={SERIES[2]} strokeWidth={2}
+                <Bar dataKey="depositsUsdc" name="Dépôts" fill={SERIES[0]} maxBarSize={24} isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="chargesUsdc" name="Charges" fill={SERIES[1]} maxBarSize={24} isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                <Line dataKey="feesUsdc" name="Frais protocole (valorisation)" stroke={SERIES[2]} strokeWidth={2} isAnimationActive={false}
                   dot={dot(SERIES[2])} activeDot={activeDot}>
                   <LabelList content={<EndLabel count={months.length} text="Frais" fill={t.label} />} />
                 </Line>
-                <Line dataKey="withdrawalsUsdc" name="Retraits providers (valorisation)" stroke={SERIES[3]} strokeWidth={2}
+                <Line dataKey="withdrawalsUsdc" name="Retraits providers (valorisation)" stroke={SERIES[3]} strokeWidth={2} isAnimationActive={false}
                   dot={dot(SERIES[3])} activeDot={activeDot}>
                   <LabelList content={<EndLabel count={months.length} text="Retraits" fill={t.label} />} />
                 </Line>

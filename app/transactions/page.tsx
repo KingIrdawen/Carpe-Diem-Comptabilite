@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import PrintButton from '@/components/PrintButton'
 
-type EventType = 'deposit' | 'charge' | 'batchCharge' | 'externalRoute' | 'providerWithdrawal' | 'migration' | 'rebate' | 'treasuryFund'
+type EventType = 'deposit' | 'x402pull' | 'charge' | 'batchCharge' | 'externalRoute' | 'providerWithdrawal' | 'migration' | 'rebate' | 'treasuryFund'
 
 interface Transaction {
   type: EventType
@@ -15,6 +16,7 @@ interface Transaction {
 
 const TYPE_LABELS: Record<EventType, string> = {
   deposit: 'Dépôt',
+  x402pull: 'X402 Pull',
   charge: 'Charge',
   batchCharge: 'Batch Charge',
   externalRoute: 'Route externe',
@@ -26,6 +28,7 @@ const TYPE_LABELS: Record<EventType, string> = {
 
 const TYPE_COLORS: Record<EventType, string> = {
   deposit: 'bg-green-500/20 text-green-300',
+  x402pull: 'bg-green-500/20 text-green-300',
   charge: 'bg-blue-500/20 text-blue-300',
   batchCharge: 'bg-blue-500/20 text-blue-300',
   externalRoute: 'bg-purple-500/20 text-purple-300',
@@ -52,7 +55,7 @@ function shortHash(hash: string): string {
 }
 
 function getAmount(tx: Transaction): string {
-  if (tx.type === 'deposit') return `+${(tx.amountUsdc as number).toFixed(2)} USDC`
+  if (tx.type === 'deposit' || tx.type === 'x402pull') return `+${(tx.amountUsdc as number).toFixed(2)} USDC`
   if (tx.type === 'charge') return `-${(tx.amountUsdc as number).toFixed(2)} USDC`
   if (tx.type === 'batchCharge') return `-${(tx.totalUsdc as number).toFixed(2)} USDC`
   if (tx.type === 'externalRoute') return `-${((tx.toFloatUsdc as number) + (tx.toTreasuryUsdc as number)).toFixed(2)} USDC`
@@ -71,6 +74,7 @@ function fmtUsdc(n: number): string {
 function getUsdcValue(tx: Transaction): string {
   const values: Record<EventType, [string, number | null]> = {
     deposit: ['+', tx.amountUsdc as number],
+    x402pull: ['+', tx.amountUsdc as number],
     charge: ['-', tx.amountUsdc as number],
     batchCharge: ['-', tx.totalUsdc as number],
     externalRoute: ['-', (tx.toFloatUsdc as number) + (tx.toTreasuryUsdc as number)],
@@ -119,6 +123,7 @@ export default function TransactionsPage() {
       <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
         <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
         <h2 className="font-semibold">Transactions</h2>
+        <PrintButton className="ml-auto" />
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">

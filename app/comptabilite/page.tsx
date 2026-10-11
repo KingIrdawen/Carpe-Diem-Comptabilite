@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import PrintButton from '@/components/PrintButton'
 
 interface MonthData {
   month: string
@@ -138,6 +139,7 @@ export default function ComptabilitePage() {
         <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
         <h2 className="font-semibold">Comptabilité mensuelle</h2>
         <Link href="/exports" className="ml-auto text-sm text-blue-400 hover:text-blue-300 transition-colors">Exporter →</Link>
+        <PrintButton />
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-4">

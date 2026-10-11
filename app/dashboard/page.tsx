@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import PrintButton from '@/components/PrintButton'
 
 interface Stats {
   totalDepositsUsdc: number
@@ -269,6 +270,7 @@ export default function DashboardPage() {
           <Link href="/comptabilite" className="text-sm text-gray-400 hover:text-white transition-colors">Comptabilité</Link>
           <Link href="/statistiques" className="text-sm text-gray-400 hover:text-white transition-colors">Statistiques</Link>
           <Link href="/exports" className="text-sm text-gray-400 hover:text-white transition-colors">Exports</Link>
+          <PrintButton />
           <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-white transition-colors">Déconnexion</button>
         </div>
       </nav>
@@ -276,7 +278,7 @@ export default function DashboardPage() {
       <main className="p-6 max-w-7xl mx-auto space-y-6">
 
         {/* Panneau de synchronisation */}
-        <section className="border border-gray-700 rounded-xl p-5 space-y-4">
+        <section className="border border-gray-700 rounded-xl p-5 space-y-4 print:hidden">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold">Synchronisation blockchain</h3>
