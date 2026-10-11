@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import PrintButton from '@/components/PrintButton'
+import NavBar from '@/components/NavBar'
 
 type EventType = 'deposit' | 'x402pull' | 'charge' | 'batchCharge' | 'externalRoute' | 'providerWithdrawal' | 'migration' | 'rebate' | 'treasuryFund'
 
@@ -120,11 +119,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
-        <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
-        <h2 className="font-semibold">Transactions</h2>
-        <PrintButton className="ml-auto" />
-      </nav>
+      <NavBar />
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex flex-wrap gap-2">

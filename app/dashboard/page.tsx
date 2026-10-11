@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import PrintButton from '@/components/PrintButton'
+import NavBar from '@/components/NavBar'
 
 interface Stats {
   totalDepositsUsdc: number
@@ -252,28 +251,13 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/')
-  }
-
   function fmt(n: number, d = 2) {
     return n.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d })
   }
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-        <h1 className="font-bold text-lg">Carpe Diem — Comptabilité</h1>
-        <div className="flex items-center gap-4">
-          <Link href="/transactions" className="text-sm text-gray-400 hover:text-white transition-colors">Transactions</Link>
-          <Link href="/comptabilite" className="text-sm text-gray-400 hover:text-white transition-colors">Comptabilité</Link>
-          <Link href="/statistiques" className="text-sm text-gray-400 hover:text-white transition-colors">Statistiques</Link>
-          <Link href="/exports" className="text-sm text-gray-400 hover:text-white transition-colors">Exports</Link>
-          <PrintButton />
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-white transition-colors">Déconnexion</button>
-        </div>
-      </nav>
+      <NavBar />
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
 

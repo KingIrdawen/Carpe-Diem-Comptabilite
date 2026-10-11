@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import Link from 'next/link'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts'
-import PrintButton from '@/components/PrintButton'
+import NavBar from '@/components/NavBar'
 
 // Palettes catégorielles validées (contraste et daltonisme) pour chaque thème de l'app
 const THEMES = {
@@ -162,11 +161,7 @@ export default function StatistiquesPage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
-        <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
-        <h2 className="font-semibold">Statistiques</h2>
-        <PrintButton className="ml-auto" />
-      </nav>
+      <NavBar />
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         {loading && <p className="text-gray-400 animate-pulse">Chargement…</p>}
@@ -248,9 +243,9 @@ export default function StatistiquesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50 font-mono tabular-nums">
-                {[...months].reverse().map(m => (
+                {months.map(m => (
                   <tr key={m.key} className="hover:bg-gray-900/50">
-                    <td className="px-4 py-2.5 font-sans capitalize">{m.label}</td>
+                    <td className="px-4 py-2.5 font-sans first-letter:uppercase">{m.label}</td>
                     <td className="px-4 py-2.5 text-right">{fmt(m.activeUsers)}</td>
                     <td className="px-4 py-2.5 text-right">{fmt(m.newUsers)}</td>
                     <td className="px-4 py-2.5 text-right text-gray-400">{fmt(m.txCount)}</td>

@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import PrintButton from '@/components/PrintButton'
+import NavBar from '@/components/NavBar'
 
 interface MonthData {
   month: string
@@ -135,12 +134,7 @@ export default function ComptabilitePage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-gray-800 px-6 py-4 flex items-center gap-6">
-        <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm transition-colors">← Dashboard</Link>
-        <h2 className="font-semibold">Comptabilité mensuelle</h2>
-        <Link href="/exports" className="ml-auto text-sm text-blue-400 hover:text-blue-300 transition-colors">Exporter →</Link>
-        <PrintButton />
-      </nav>
+      <NavBar />
 
       <main className="p-6 max-w-7xl mx-auto space-y-4">
         {loading && <p className="text-gray-400 animate-pulse">Chargement…</p>}
