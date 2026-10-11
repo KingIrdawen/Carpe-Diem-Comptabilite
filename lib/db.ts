@@ -15,6 +15,8 @@ export async function initDb() {
       args JSONB NOT NULL
     )
   `
+  // Cours DIEM en USDC au moment de la transaction (valeur change USDC = montant DIEM × cours)
+  await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS diem_price_usdc DOUBLE PRECISION`
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique
     ON events(tx_hash, type)
@@ -108,6 +110,47 @@ export async function getEventsWithMissingTimestamp(): Promise<{ id: number; blo
 
 export async function updateEventTimestamp(id: number, timestamp: number) {
   await sql`UPDATE events SET timestamp = ${timestamp} WHERE id = ${id}`
+}
+
+// Événements dont au moins un montant est en DIEM
+export const DIEM_EVENT_TYPES = [
+  'Charge', 'BatchCharge', 'BatchProviderCredited', 'ProviderWithdrawal',
+  'IdleRebateCredited', 'RebateDistributed', 'TreasuryFunded',
+]
+
+// Sur Base, les blocs sont produits toutes les 2 s exactement depuis la genèse
+const BASE_GENESIS_TS = 1686789347
+
+export async function fixMissingTimestampsFromBlocks() {
+  await sql`
+    UPDATE events SET timestamp = ${BASE_GENESIS_TS} + 2 * block_number
+    WHERE timestamp = 0 AND block_number > 0
+  `
+}
+
+export async function getEventsMissingDiemPrice(): Promise<{ id: number; timestamp: number }[]> {
+  const rows = await sql`
+    SELECT id, timestamp FROM events
+    WHERE diem_price_usdc IS NULL AND timestamp > 0 AND type = ANY(${DIEM_EVENT_TYPES})
+  `
+  return rows.map(r => ({ id: Number(r.id), timestamp: Number(r.timestamp) }))
+}
+
+export async function updateDiemPrices(ids: number[], prices: number[]) {
+  if (ids.length === 0) return
+  await sql`
+    UPDATE events e SET diem_price_usdc = v.price
+    FROM (SELECT unnest(${ids}::int[]) AS id, unnest(${prices}::float8[]) AS price) v
+    WHERE e.id = v.id
+  `
+}
+
+export async function countEventsMissingDiemPrice(): Promise<number> {
+  const rows = await sql`
+    SELECT count(*)::int AS n FROM events
+    WHERE diem_price_usdc IS NULL AND type = ANY(${DIEM_EVENT_TYPES})
+  `
+  return rows[0]?.n ?? 0
 }
 
 export async function getSyncStatus() {

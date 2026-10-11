@@ -63,6 +63,31 @@ function getAmount(tx: Transaction): string {
   return '—'
 }
 
+function fmtUsdc(n: number): string {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Montant en USDC : direct pour les flux USDC, valeur change (cours de la transaction) pour les flux DIEM
+function getUsdcValue(tx: Transaction): string {
+  const values: Record<EventType, [string, number | null]> = {
+    deposit: ['+', tx.amountUsdc as number],
+    charge: ['-', tx.amountUsdc as number],
+    batchCharge: ['-', tx.totalUsdc as number],
+    externalRoute: ['-', (tx.toFloatUsdc as number) + (tx.toTreasuryUsdc as number)],
+    providerWithdrawal: ['-', tx.amountUsdcValue as number | null],
+    migration: ['-', tx.amountUsdc as number],
+    rebate: ['-', tx.usdcIn as number],
+    treasuryFund: ['', tx.amountUsdcValue as number | null],
+  }
+  const [sign, value] = values[tx.type] ?? ['', null]
+  return value == null ? '—' : `${sign}${fmtUsdc(value)} USDC`
+}
+
+function getDiemPrice(tx: Transaction): string {
+  const p = tx.diemPriceUsdc as number | null | undefined
+  return p == null ? '—' : fmtUsdc(p)
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,6 +143,8 @@ export default function TransactionsPage() {
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Montant</th>
+                <th className="px-4 py-3 text-right">Valeur USDC</th>
+                <th className="px-4 py-3 text-right" title="Cours de 1 DIEM en USDC au moment de la transaction">Cours DIEM</th>
                 <th className="px-4 py-3 text-left">Adresse</th>
                 <th className="px-4 py-3 text-left">Tx</th>
               </tr>
@@ -132,6 +159,8 @@ export default function TransactionsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono">{getAmount(tx)}</td>
+                  <td className="px-4 py-3 font-mono text-right">{getUsdcValue(tx)}</td>
+                  <td className="px-4 py-3 font-mono text-right text-gray-400 text-xs">{getDiemPrice(tx)}</td>
                   <td className="px-4 py-3 font-mono text-gray-400 text-xs">
                     {tx.user ? shortAddr(tx.user as string) : tx.provider ? shortAddr(tx.provider as string) : '—'}
                   </td>
@@ -149,7 +178,7 @@ export default function TransactionsPage() {
               ))}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">Aucune transaction trouvée</td>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">Aucune transaction trouvée</td>
                 </tr>
               )}
             </tbody>

@@ -9,7 +9,7 @@ export const maxDuration = 60
 const DEPLOY_BLOCK = 45_717_327
 const DEPLOY_TS = Math.floor(new Date('2026-05-08T00:00:00Z').getTime() / 1000)
 
-type DbRow = { type: string; tx_hash: string; block_number: string | number; timestamp: string | number; args: Record<string, unknown> }
+type DbRow = { type: string; tx_hash: string; block_number: string | number; timestamp: string | number; args: Record<string, unknown>; diem_price_usdc: number | null }
 
 function resolveTs(row: DbRow): number {
   const ts = Number(row.timestamp)
@@ -33,6 +33,19 @@ function safeUsdc(args: Record<string, unknown>, key: string): number {
 }
 function safeDiem(args: Record<string, unknown>, key: string): number {
   try { return formatDiem(BigInt(String(args[key] ?? '0'))) } catch { return 0 }
+}
+
+// Cours DIEM/USDC au moment de la transaction (vide si non valorisée)
+function diemPrice(row: DbRow): number | null {
+  return row.diem_price_usdc == null ? null : Number(row.diem_price_usdc)
+}
+// Valeur change USDC d'un montant DIEM au cours de la transaction
+function diemUsdc(row: DbRow, key: string): number | null {
+  const p = diemPrice(row)
+  return p == null ? null : safeDiem(row.args, key) * p
+}
+function sumDiemUsdc(rows: DbRow[], key: string): number {
+  return rows.reduce((s, r) => s + (diemUsdc(r, key) ?? 0), 0)
 }
 
 function styleHeader(row: ExcelJS.Row) {
@@ -100,24 +113,25 @@ export async function GET(req: Request) {
                        + batches.reduce((s, r) => s + safeUsdc(r.args, 'totalUsdc'), 0)
     const totalChgDiem = charges.reduce((s, r) => s + safeDiem(r.args, 'fees'), 0)
                        + batches.reduce((s, r) => s + safeDiem(r.args, 'fees'), 0)
+    const totalChgDiemUsdc = sumDiemUsdc(charges, 'fees') + sumDiemUsdc(batches, 'fees')
     const shCharge = wb.addWorksheet('Charges')
-    shCharge.addRow([`TOTAL CHARGES — ${monthName}`, `${totalChgUsdc.toFixed(2)} USDC débités`, `${totalChgDiem.toFixed(4)} DIEM frais`])
+    shCharge.addRow([`TOTAL CHARGES — ${monthName}`, `${totalChgUsdc.toFixed(2)} USDC débités`, `${totalChgDiem.toFixed(4)} DIEM frais`, `≈ ${totalChgDiemUsdc.toFixed(2)} USDC (valeur change)`])
     styleTotal(shCharge.getRow(1))
     shCharge.addRow([])
-    shCharge.addRow(['Date', 'Utilisateur', 'Provider', 'USDC débité', 'DIEM reçu', 'Part provider (DIEM)', 'Frais (DIEM)', 'Surcharge (DIEM)', 'Tx Hash'])
+    shCharge.addRow(['Date', 'Utilisateur', 'Provider', 'USDC débité', 'DIEM reçu', 'Part provider (DIEM)', 'Frais (DIEM)', 'Frais — valeur change USDC', 'Surcharge (DIEM)', 'Cours DIEM (USDC)', 'Tx Hash'])
     styleHeader(shCharge.getRow(3))
     charges.forEach(r => shCharge.addRow([
       toDate(resolveTs(r)), r.args.user, r.args.provider,
       safeUsdc(r.args, 'amount'), safeDiem(r.args, 'diemReceived'),
-      safeDiem(r.args, 'providerShare'), safeDiem(r.args, 'fees'),
-      safeDiem(r.args, 'surcharge'), r.tx_hash,
+      safeDiem(r.args, 'providerShare'), safeDiem(r.args, 'fees'), diemUsdc(r, 'fees'),
+      safeDiem(r.args, 'surcharge'), diemPrice(r), r.tx_hash,
     ]))
     batches.forEach(r => shCharge.addRow([
       toDate(resolveTs(r)), `(batch ${r.args.entryCount} entrées)`, '—',
       safeUsdc(r.args, 'totalUsdc'), safeDiem(r.args, 'diemReceived'), '—',
-      safeDiem(r.args, 'fees'), safeDiem(r.args, 'surcharge'), r.tx_hash,
+      safeDiem(r.args, 'fees'), diemUsdc(r, 'fees'), safeDiem(r.args, 'surcharge'), diemPrice(r), r.tx_hash,
     ]))
-    shCharge.columns = [{ width: 22 }, { width: 44 }, { width: 44 }, { width: 14 }, { width: 14 }, { width: 20 }, { width: 14 }, { width: 18 }, { width: 70 }]
+    shCharge.columns = [{ width: 22 }, { width: 44 }, { width: 44 }, { width: 14 }, { width: 14 }, { width: 20 }, { width: 14 }, { width: 24 }, { width: 18 }, { width: 18 }, { width: 70 }]
 
     // ── Routes externes ──────────────────────────────────────────────────────
     const totalExt = extRoutes.reduce((s, r) => s + safeUsdc(r.args, 'toFloat') + safeUsdc(r.args, 'toTreasury'), 0)
@@ -135,14 +149,15 @@ export async function GET(req: Request) {
 
     // ── Retraits providers ───────────────────────────────────────────────────
     const totalWdr = withdrawals.reduce((s, r) => s + safeDiem(r.args, 'amount'), 0)
+    const totalWdrUsdc = sumDiemUsdc(withdrawals, 'amount')
     const shProv = wb.addWorksheet('Retraits providers')
-    shProv.addRow([`TOTAL RETRAITS PROVIDERS — ${monthName}`, `${totalWdr.toFixed(4)} DIEM`])
+    shProv.addRow([`TOTAL RETRAITS PROVIDERS — ${monthName}`, `${totalWdr.toFixed(4)} DIEM`, `≈ ${totalWdrUsdc.toFixed(2)} USDC (valeur change)`])
     styleTotal(shProv.getRow(1))
     shProv.addRow([])
-    shProv.addRow(['Date', 'Provider', 'Montant DIEM', 'Tx Hash'])
+    shProv.addRow(['Date', 'Provider', 'Montant DIEM', 'Valeur change USDC', 'Cours DIEM (USDC)', 'Tx Hash'])
     styleHeader(shProv.getRow(3))
-    withdrawals.forEach(r => shProv.addRow([toDate(resolveTs(r)), r.args.provider, safeDiem(r.args, 'amount'), r.tx_hash]))
-    shProv.columns = [{ width: 22 }, { width: 44 }, { width: 16 }, { width: 70 }]
+    withdrawals.forEach(r => shProv.addRow([toDate(resolveTs(r)), r.args.provider, safeDiem(r.args, 'amount'), diemUsdc(r, 'amount'), diemPrice(r), r.tx_hash]))
+    shProv.columns = [{ width: 22 }, { width: 44 }, { width: 16 }, { width: 20 }, { width: 18 }, { width: 70 }]
 
     // ── Migrations ───────────────────────────────────────────────────────────
     const totalMig = migrations.reduce((s, r) => s + safeUsdc(r.args, 'amount'), 0)
@@ -161,21 +176,22 @@ export async function GET(req: Request) {
     shRebate.addRow([`TOTAL REBATES — ${monthName}`, `${totalReb.toFixed(2)} USDC`])
     styleTotal(shRebate.getRow(1))
     shRebate.addRow([])
-    shRebate.addRow(['Date', 'USDC In', 'DIEM Out', 'Nb providers', 'Tx Hash'])
+    shRebate.addRow(['Date', 'USDC In', 'DIEM Out', 'DIEM Out — valeur change USDC', 'Cours DIEM (USDC)', 'Nb providers', 'Tx Hash'])
     styleHeader(shRebate.getRow(3))
-    rebates.forEach(r => shRebate.addRow([toDate(resolveTs(r)), safeUsdc(r.args, 'usdcIn'), safeDiem(r.args, 'diemOut'), Number(r.args.providerCount), r.tx_hash]))
-    shRebate.columns = [{ width: 22 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 70 }]
+    rebates.forEach(r => shRebate.addRow([toDate(resolveTs(r)), safeUsdc(r.args, 'usdcIn'), safeDiem(r.args, 'diemOut'), diemUsdc(r, 'diemOut'), diemPrice(r), Number(r.args.providerCount), r.tx_hash]))
+    shRebate.columns = [{ width: 22 }, { width: 12 }, { width: 14 }, { width: 28 }, { width: 18 }, { width: 14 }, { width: 70 }]
 
     // ── Treasury ─────────────────────────────────────────────────────────────
     const totalTre = treasury.reduce((s, r) => s + safeDiem(r.args, 'amount'), 0)
+    const totalTreUsdc = sumDiemUsdc(treasury, 'amount')
     const shTreasury = wb.addWorksheet('Treasury')
-    shTreasury.addRow([`TOTAL TREASURY — ${monthName}`, `${totalTre.toFixed(4)} DIEM`])
+    shTreasury.addRow([`TOTAL TREASURY — ${monthName}`, `${totalTre.toFixed(4)} DIEM`, `≈ ${totalTreUsdc.toFixed(2)} USDC (valeur change)`])
     styleTotal(shTreasury.getRow(1))
     shTreasury.addRow([])
-    shTreasury.addRow(['Date', 'Destinataire', 'Montant DIEM', 'Source', 'Tx Hash'])
+    shTreasury.addRow(['Date', 'Destinataire', 'Montant DIEM', 'Valeur change USDC', 'Cours DIEM (USDC)', 'Source', 'Tx Hash'])
     styleHeader(shTreasury.getRow(3))
-    treasury.forEach(r => shTreasury.addRow([toDate(resolveTs(r)), shortAddr(r.args.to), safeDiem(r.args, 'amount'), r.args.source, r.tx_hash]))
-    shTreasury.columns = [{ width: 22 }, { width: 14 }, { width: 16 }, { width: 30 }, { width: 70 }]
+    treasury.forEach(r => shTreasury.addRow([toDate(resolveTs(r)), shortAddr(r.args.to), safeDiem(r.args, 'amount'), diemUsdc(r, 'amount'), diemPrice(r), r.args.source, r.tx_hash]))
+    shTreasury.columns = [{ width: 22 }, { width: 14 }, { width: 16 }, { width: 20 }, { width: 18 }, { width: 30 }, { width: 70 }]
 
     // ── Résumé ───────────────────────────────────────────────────────────────
     const shSum = wb.addWorksheet('Résumé')
@@ -193,12 +209,12 @@ export async function GET(req: Request) {
     shSum.addRow(['Solde net USDC', netUsdc])
     styleTotal(shSum.getRow(9))
     shSum.addRow([])
-    shSum.addRow(['FLUX DIEM', 'Montant'])
+    shSum.addRow(['FLUX DIEM', 'Montant DIEM', 'Valeur change USDC'])
     styleHeader(shSum.getRow(11))
-    shSum.addRow(['Frais protocole', totalChgDiem])
-    shSum.addRow(['Retraits providers', -totalWdr])
-    shSum.addRow(['Vers Treasury', totalTre])
-    shSum.columns = [{ width: 30 }, { width: 20 }]
+    shSum.addRow(['Frais protocole', totalChgDiem, totalChgDiemUsdc])
+    shSum.addRow(['Retraits providers', -totalWdr, -totalWdrUsdc])
+    shSum.addRow(['Vers Treasury', totalTre, totalTreUsdc])
+    shSum.columns = [{ width: 30 }, { width: 20 }, { width: 22 }]
 
     const buffer = await wb.xlsx.writeBuffer()
     return new NextResponse(buffer, {

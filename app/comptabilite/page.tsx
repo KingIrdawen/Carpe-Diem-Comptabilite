@@ -15,7 +15,19 @@ interface MonthData {
   providerWithdrawals: number
   rebatesUsdc: number
   treasuryDiem: number
+  // Valeur change USDC des flux DIEM (cours au moment de chaque transaction)
+  feesProtocolUsdc: number
+  providerWithdrawalsUsdc: number
+  treasuryUsdc: number
   netUsdc: number
+}
+
+type Totals = Omit<MonthData, 'month' | 'year' | 'monthNum'>
+
+const EMPTY_TOTALS: Totals = {
+  depositsUsdc: 0, chargesUsdc: 0, externalUsdc: 0, migrationsUsdc: 0,
+  feesProtocol: 0, providerWithdrawals: 0, rebatesUsdc: 0, treasuryDiem: 0,
+  feesProtocolUsdc: 0, providerWithdrawalsUsdc: 0, treasuryUsdc: 0, netUsdc: 0,
 }
 
 export default function ComptabilitePage() {
@@ -52,8 +64,7 @@ export default function ComptabilitePage() {
               month: new Date(Number(y), Number(m) - 1).toLocaleString('fr-FR', { month: 'long' }),
               year: Number(y),
               monthNum: Number(m),
-              depositsUsdc: 0, chargesUsdc: 0, externalUsdc: 0, migrationsUsdc: 0,
-              feesProtocol: 0, providerWithdrawals: 0, rebatesUsdc: 0, treasuryDiem: 0, netUsdc: 0,
+              ...EMPTY_TOTALS,
             }
           }
           return byMonth[k]
@@ -63,15 +74,17 @@ export default function ComptabilitePage() {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).depositsUsdc += e.amountUsdc
         })
-        data.charges.forEach((e: { timestamp: number; blockNumber: string; amountUsdc: number; feesDiem: number }) => {
+        data.charges.forEach((e: { timestamp: number; blockNumber: string; amountUsdc: number; feesDiem: number; feesUsdcValue: number | null }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).chargesUsdc += e.amountUsdc
           ensure(k).feesProtocol += e.feesDiem
+          ensure(k).feesProtocolUsdc += e.feesUsdcValue ?? 0
         })
-        data.batchCharges.forEach((e: { timestamp: number; blockNumber: string; totalUsdc: number; feesDiem: number }) => {
+        data.batchCharges.forEach((e: { timestamp: number; blockNumber: string; totalUsdc: number; feesDiem: number; feesUsdcValue: number | null }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).chargesUsdc += e.totalUsdc
           ensure(k).feesProtocol += e.feesDiem
+          ensure(k).feesProtocolUsdc += e.feesUsdcValue ?? 0
         })
         data.externalRoutes.forEach((e: { timestamp: number; blockNumber: string; toFloatUsdc: number; toTreasuryUsdc: number }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
@@ -81,17 +94,19 @@ export default function ComptabilitePage() {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).migrationsUsdc += e.amountUsdc
         })
-        data.providerWithdrawals.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number }) => {
+        data.providerWithdrawals.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number; amountUsdcValue: number | null }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).providerWithdrawals += e.amountDiem
+          ensure(k).providerWithdrawalsUsdc += e.amountUsdcValue ?? 0
         })
         data.rebates.forEach((e: { timestamp: number; blockNumber: string; usdcIn: number }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).rebatesUsdc += e.usdcIn
         })
-        data.treasuryFunds.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number }) => {
+        data.treasuryFunds.forEach((e: { timestamp: number; blockNumber: string; amountDiem: number; amountUsdcValue: number | null }) => {
           const k = key(resolveTs(e.timestamp, e.blockNumber)); if (!k) return
           ensure(k).treasuryDiem += e.amountDiem
+          ensure(k).treasuryUsdc += e.amountUsdcValue ?? 0
         })
 
         Object.values(byMonth).forEach(m => {
@@ -111,17 +126,11 @@ export default function ComptabilitePage() {
     return n.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
   }
 
-  const yearly = months.reduce((acc, m) => ({
-    depositsUsdc: acc.depositsUsdc + m.depositsUsdc,
-    chargesUsdc: acc.chargesUsdc + m.chargesUsdc,
-    externalUsdc: acc.externalUsdc + m.externalUsdc,
-    migrationsUsdc: acc.migrationsUsdc + m.migrationsUsdc,
-    feesProtocol: acc.feesProtocol + m.feesProtocol,
-    providerWithdrawals: acc.providerWithdrawals + m.providerWithdrawals,
-    rebatesUsdc: acc.rebatesUsdc + m.rebatesUsdc,
-    treasuryDiem: acc.treasuryDiem + m.treasuryDiem,
-    netUsdc: acc.netUsdc + m.netUsdc,
-  }), { depositsUsdc: 0, chargesUsdc: 0, externalUsdc: 0, migrationsUsdc: 0, feesProtocol: 0, providerWithdrawals: 0, rebatesUsdc: 0, treasuryDiem: 0, netUsdc: 0 })
+  const yearly = months.reduce((acc, m) => {
+    const next = { ...acc }
+    for (const k of Object.keys(EMPTY_TOTALS) as (keyof Totals)[]) next[k] += m[k]
+    return next
+  }, EMPTY_TOTALS)
 
   return (
     <div className="min-h-screen">
@@ -149,10 +158,10 @@ export default function ComptabilitePage() {
               <Cell label="Migrations" value={`-${fmt(m.migrationsUsdc)} USDC`} color="orange" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/20">
-              <Cell label="Frais proto." value={`${fmt(m.feesProtocol, 4)} DIEM`} color={m.feesProtocol > 0 ? 'green' : 'gray'} />
-              <Cell label="Retr. prov." value={`${fmt(m.providerWithdrawals, 4)} DIEM`} color={m.providerWithdrawals > 0 ? 'red' : 'gray'} />
+              <Cell label="Frais proto." value={`${fmt(m.feesProtocol, 4)} DIEM`} usdcValue={`≈ ${fmt(m.feesProtocolUsdc)} USDC`} color={m.feesProtocol > 0 ? 'green' : 'gray'} />
+              <Cell label="Retr. prov." value={`${fmt(m.providerWithdrawals, 4)} DIEM`} usdcValue={`≈ ${fmt(m.providerWithdrawalsUsdc)} USDC`} color={m.providerWithdrawals > 0 ? 'red' : 'gray'} />
               <Cell label="Rebates" value={`-${fmt(m.rebatesUsdc)} USDC`} color={m.rebatesUsdc > 0 ? 'red' : 'gray'} />
-              <Cell label="Treasury" value={`${fmt(m.treasuryDiem, 4)} DIEM`} color={m.treasuryDiem > 0 ? 'green' : 'gray'} />
+              <Cell label="Treasury" value={`${fmt(m.treasuryDiem, 4)} DIEM`} usdcValue={`≈ ${fmt(m.treasuryUsdc)} USDC`} color={m.treasuryDiem > 0 ? 'green' : 'gray'} />
             </div>
           </div>
         ))}
@@ -176,10 +185,10 @@ export default function ComptabilitePage() {
               <Cell label="Migrations" value={`-${fmt(yearly.migrationsUsdc)} USDC`} color="orange" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/30">
-              <Cell label="Frais proto." value={`${fmt(yearly.feesProtocol, 4)} DIEM`} color="gray" />
-              <Cell label="Retr. prov." value={`${fmt(yearly.providerWithdrawals, 4)} DIEM`} color="gray" />
+              <Cell label="Frais proto." value={`${fmt(yearly.feesProtocol, 4)} DIEM`} usdcValue={`≈ ${fmt(yearly.feesProtocolUsdc)} USDC`} color="gray" />
+              <Cell label="Retr. prov." value={`${fmt(yearly.providerWithdrawals, 4)} DIEM`} usdcValue={`≈ ${fmt(yearly.providerWithdrawalsUsdc)} USDC`} color="gray" />
               <Cell label="Rebates" value={`-${fmt(yearly.rebatesUsdc)} USDC`} color="gray" />
-              <Cell label="Treasury" value={`${fmt(yearly.treasuryDiem, 4)} DIEM`} color="gray" />
+              <Cell label="Treasury" value={`${fmt(yearly.treasuryDiem, 4)} DIEM`} usdcValue={`≈ ${fmt(yearly.treasuryUsdc)} USDC`} color="gray" />
             </div>
           </div>
         )}
@@ -188,7 +197,7 @@ export default function ComptabilitePage() {
   )
 }
 
-function Cell({ label, value, color }: { label: string; value: string; color: string }) {
+function Cell({ label, value, usdcValue, color }: { label: string; value: string; usdcValue?: string; color: string }) {
   const text: Record<string, string> = {
     green: 'text-green-400', blue: 'text-blue-400', purple: 'text-purple-400',
     orange: 'text-orange-400', red: 'text-red-400', gray: 'text-gray-300',
@@ -197,6 +206,7 @@ function Cell({ label, value, color }: { label: string; value: string; color: st
     <div className="px-4 py-3 space-y-0.5">
       <p className="text-xs text-gray-500">{label}</p>
       <p className={`text-sm font-mono font-medium ${text[color] ?? ''}`}>{value}</p>
+      {usdcValue && <p className="text-xs font-mono text-gray-400" title="Valeur change USDC au cours de chaque transaction">{usdcValue}</p>}
     </div>
   )
 }

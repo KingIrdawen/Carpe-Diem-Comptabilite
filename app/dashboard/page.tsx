@@ -13,6 +13,10 @@ interface Stats {
   totalProviderWithdrawalsDiem: number
   totalRebatesUsdcIn: number
   totalTreasuryDiem: number
+  totalFeesUsdcValue: number
+  totalProviderWithdrawalsUsdcValue: number
+  totalTreasuryUsdcValue: number
+  missingDiemPrices: number
   depositCount: number
   userCount: number
 }
@@ -34,6 +38,11 @@ const PRESETS = [
   { label: 'Tout (depuis déploiement)', days: 130 },
 ]
 
+// Somme des valeurs change USDC (null = transaction pas encore valorisée)
+function sumUsdcValue<T>(items: T[], pick: (item: T) => number | null): number {
+  return items.reduce((a, item) => a + (pick(item) ?? 0), 0)
+}
+
 function subtractDays(days: number): string {
   const d = new Date()
   d.setDate(d.getDate() - days)
@@ -51,6 +60,7 @@ export default function DashboardPage() {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
   const [repairing, setRepairing] = useState(false)
+  const [pricing, setPricing] = useState(false)
   const [startDate, setStartDate] = useState(subtractDays(30))
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10))
   const router = useRouter()
@@ -81,6 +91,11 @@ export default function DashboardPage() {
           totalProviderWithdrawalsDiem: data.providerWithdrawals.reduce((a: number, d: { amountDiem: number }) => a + d.amountDiem, 0),
           totalRebatesUsdcIn: data.rebates.reduce((a: number, d: { usdcIn: number }) => a + d.usdcIn, 0),
           totalTreasuryDiem: data.treasuryFunds.reduce((a: number, d: { amountDiem: number }) => a + d.amountDiem, 0),
+          totalFeesUsdcValue: sumUsdcValue(data.charges, (d: { feesUsdcValue: number | null }) => d.feesUsdcValue) +
+            sumUsdcValue(data.batchCharges, (d: { feesUsdcValue: number | null }) => d.feesUsdcValue),
+          totalProviderWithdrawalsUsdcValue: sumUsdcValue(data.providerWithdrawals, (d: { amountUsdcValue: number | null }) => d.amountUsdcValue),
+          totalTreasuryUsdcValue: sumUsdcValue(data.treasuryFunds, (d: { amountUsdcValue: number | null }) => d.amountUsdcValue),
+          missingDiemPrices: data.missingDiemPrices ?? 0,
           depositCount: data.deposits.length,
           userCount: new Set(data.deposits.map((d: { user: string }) => d.user)).size,
         }
@@ -217,6 +232,25 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleFillDiemPrices() {
+    setPricing(true)
+    setSyncError(null)
+    setSyncSuccess(null)
+    try {
+      const res = await fetch('/api/diem-prices', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSyncSuccess(data.total === 0
+        ? '✓ Toutes les transactions DIEM sont déjà valorisées en USDC'
+        : `✓ ${data.filled}/${data.total} transaction(s) DIEM valorisée(s) en USDC`)
+      loadData()
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'Erreur valorisation USDC')
+    } finally {
+      setPricing(false)
+    }
+  }
+
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
@@ -315,6 +349,20 @@ export default function DashboardPage() {
             </button>
             <span className="text-xs text-gray-600">Corrige les écarts entre Dashboard et Comptabilité mensuelle</span>
           </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleFillDiemPrices}
+              disabled={syncing || pricing}
+              className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 transition-colors underline underline-offset-2"
+            >
+              {pricing ? 'Valorisation…' : 'Valoriser les DIEM en USDC'}
+            </button>
+            <span className="text-xs text-gray-600">
+              {stats && stats.missingDiemPrices > 0
+                ? `${stats.missingDiemPrices} transaction(s) DIEM sans cours USDC`
+                : 'Enregistre le cours DIEM/USDC au moment de chaque transaction'}
+            </span>
+          </div>
         </section>
 
         <SyncCalendar syncedRanges={syncedRanges} />
@@ -338,9 +386,9 @@ export default function DashboardPage() {
             <section>
               <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Flux DIEM</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <KpiCard label="Frais protocole" value={`${fmt(stats.totalFeesDiem, 4)} DIEM`} sub="Fees sur charges" color="green" tooltip="Part du DIEM généré lors des charges qui revient au protocole Carpe Diem. Revenu net du protocole en token interne." />
-                <KpiCard label="Retraits providers" value={`${fmt(stats.totalProviderWithdrawalsDiem, 4)} DIEM`} sub="Claimés par providers" color="red" tooltip="DIEM retiré par les prestataires de services (providers). Rémunération sortante vers les providers enregistrés dans le contrat." />
-                <KpiCard label="Treasury" value={`${fmt(stats.totalTreasuryDiem, 4)} DIEM`} sub="Vers Treasury Safe" color="yellow" tooltip="DIEM envoyé vers le Safe treasury de l'association. Mise en réserve ou dotation de trésorerie de Carpe Diem." />
+                <KpiCard label="Frais protocole" value={`${fmt(stats.totalFeesDiem, 4)} DIEM`} usdcValue={`≈ ${fmt(stats.totalFeesUsdcValue)} USDC`} sub="Fees sur charges" color="green" tooltip="Part du DIEM généré lors des charges qui revient au protocole Carpe Diem. Revenu net du protocole en token interne." />
+                <KpiCard label="Retraits providers" value={`${fmt(stats.totalProviderWithdrawalsDiem, 4)} DIEM`} usdcValue={`≈ ${fmt(stats.totalProviderWithdrawalsUsdcValue)} USDC`} sub="Claimés par providers" color="red" tooltip="DIEM retiré par les prestataires de services (providers). Rémunération sortante vers les providers enregistrés dans le contrat." />
+                <KpiCard label="Treasury" value={`${fmt(stats.totalTreasuryDiem, 4)} DIEM`} usdcValue={`≈ ${fmt(stats.totalTreasuryUsdcValue)} USDC`} sub="Vers Treasury Safe" color="yellow" tooltip="DIEM envoyé vers le Safe treasury de l'association. Mise en réserve ou dotation de trésorerie de Carpe Diem." />
               </div>
             </section>
           </>
@@ -434,7 +482,7 @@ function SyncCalendar({ syncedRanges }: { syncedRanges: SyncedRange[] }) {
   )
 }
 
-function KpiCard({ label, value, sub, color, tooltip }: { label: string; value: string; sub?: string; color: string; tooltip?: string }) {
+function KpiCard({ label, value, usdcValue, sub, color, tooltip }: { label: string; value: string; usdcValue?: string; sub?: string; color: string; tooltip?: string }) {
   const colors: Record<string, string> = {
     green: 'border-green-500/30 bg-green-500/5',
     blue: 'border-blue-500/30 bg-blue-500/5',
@@ -447,6 +495,7 @@ function KpiCard({ label, value, sub, color, tooltip }: { label: string; value: 
     <div className={`relative group rounded-xl border p-5 space-y-1 ${colors[color] ?? ''}`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="text-xl font-semibold font-mono">{value}</p>
+      {usdcValue && <p className="text-sm font-mono text-gray-300" title="Valeur change USDC : somme des montants DIEM × cours au moment de chaque transaction">{usdcValue}</p>}
       {sub && <p className="text-xs text-gray-500">{sub}</p>}
       {tooltip && (
         <div className="pointer-events-none absolute bottom-full left-0 mb-2 z-10 w-64 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-xs text-gray-300 leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { fetchAllContractEvents, FetchDebugInfo } from '@/lib/fetchEvents'
 import { insertEvents, updateLastSyncedBlock, recordSyncedRange, initDb } from '@/lib/db'
 import { publicClient } from '@/lib/viemClient'
+import { fillMissingDiemPrices } from '@/lib/diemPrice'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -50,9 +51,13 @@ export async function POST(req: Request) {
     await updateLastSyncedBlock(toBlock)
     await recordSyncedRange(startDate, endDate)
 
+    // Valorisation USDC des montants DIEM — non bloquant si l'API de prix est indisponible
+    const diemPrices = await fillMissingDiemPrices().catch(e => ({ error: String(e) }))
+
     return NextResponse.json({
       ok: true,
       synced: toInsert.length,
+      diemPrices,
       debug: debugInfo,
     })
   } catch (err) {
