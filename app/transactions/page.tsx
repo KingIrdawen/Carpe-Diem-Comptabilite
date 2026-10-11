@@ -67,7 +67,7 @@ function fmtUsdc(n: number): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// Montant en USDC : direct pour les flux USDC, valeur change (cours de la transaction) pour les flux DIEM
+// Montant en USDC : direct pour les flux USDC, valorisation (cours de la transaction) pour les flux DIEM
 function getUsdcValue(tx: Transaction): string {
   const values: Record<EventType, [string, number | null]> = {
     deposit: ['+', tx.amountUsdc as number],
@@ -143,7 +143,7 @@ export default function TransactionsPage() {
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Montant</th>
-                <th className="px-4 py-3 text-right">Valeur USDC</th>
+                <th className="px-4 py-3 text-right">Valorisation USDC</th>
                 <th className="px-4 py-3 text-right" title="Cours de 1 DIEM en USDC au moment de la transaction">Cours DIEM</th>
                 <th className="px-4 py-3 text-left">Adresse</th>
                 <th className="px-4 py-3 text-left">Tx</th>

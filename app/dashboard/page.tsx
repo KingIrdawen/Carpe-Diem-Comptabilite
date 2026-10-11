@@ -38,7 +38,7 @@ const PRESETS = [
   { label: 'Tout (depuis déploiement)', days: 130 },
 ]
 
-// Somme des valeurs change USDC (null = transaction pas encore valorisée)
+// Somme des valorisations USDC (null = transaction pas encore valorisée)
 function sumUsdcValue<T>(items: T[], pick: (item: T) => number | null): number {
   return items.reduce((a, item) => a + (pick(item) ?? 0), 0)
 }
@@ -267,6 +267,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <Link href="/transactions" className="text-sm text-gray-400 hover:text-white transition-colors">Transactions</Link>
           <Link href="/comptabilite" className="text-sm text-gray-400 hover:text-white transition-colors">Comptabilité</Link>
+          <Link href="/statistiques" className="text-sm text-gray-400 hover:text-white transition-colors">Statistiques</Link>
           <Link href="/exports" className="text-sm text-gray-400 hover:text-white transition-colors">Exports</Link>
           <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-white transition-colors">Déconnexion</button>
         </div>
@@ -495,7 +496,7 @@ function KpiCard({ label, value, usdcValue, sub, color, tooltip }: { label: stri
     <div className={`relative group rounded-xl border p-5 space-y-1 ${colors[color] ?? ''}`}>
       <p className="text-xs text-gray-400">{label}</p>
       <p className="text-xl font-semibold font-mono">{value}</p>
-      {usdcValue && <p className="text-sm font-mono text-gray-300" title="Valeur change USDC : somme des montants DIEM × cours au moment de chaque transaction">{usdcValue}</p>}
+      {usdcValue && <p className="text-sm font-mono text-gray-300" title="Valorisation USDC : somme des montants DIEM × cours au moment de chaque transaction">{usdcValue}</p>}
       {sub && <p className="text-xs text-gray-500">{sub}</p>}
       {tooltip && (
         <div className="pointer-events-none absolute bottom-full left-0 mb-2 z-10 w-64 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-xs text-gray-300 leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg">

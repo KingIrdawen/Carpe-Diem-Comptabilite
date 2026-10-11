@@ -15,7 +15,7 @@ interface MonthData {
   providerWithdrawals: number
   rebatesUsdc: number
   treasuryDiem: number
-  // Valeur change USDC des flux DIEM (cours au moment de chaque transaction)
+  // Valorisation USDC des flux DIEM (cours au moment de chaque transaction)
   feesProtocolUsdc: number
   providerWithdrawalsUsdc: number
   treasuryUsdc: number
@@ -206,7 +206,7 @@ function Cell({ label, value, usdcValue, color }: { label: string; value: string
     <div className="px-4 py-3 space-y-0.5">
       <p className="text-xs text-gray-500">{label}</p>
       <p className={`text-sm font-mono font-medium ${text[color] ?? ''}`}>{value}</p>
-      {usdcValue && <p className="text-xs font-mono text-gray-400" title="Valeur change USDC au cours de chaque transaction">{usdcValue}</p>}
+      {usdcValue && <p className="text-xs font-mono text-gray-400" title="Valorisation USDC au cours de chaque transaction">{usdcValue}</p>}
     </div>
   )
 }

@@ -15,7 +15,7 @@ export async function initDb() {
       args JSONB NOT NULL
     )
   `
-  // Cours DIEM en USDC au moment de la transaction (valeur change USDC = montant DIEM × cours)
+  // Cours DIEM en USDC au moment de la transaction (valorisation USDC = montant DIEM × cours)
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS diem_price_usdc DOUBLE PRECISION`
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique

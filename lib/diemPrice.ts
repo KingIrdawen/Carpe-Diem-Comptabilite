@@ -43,7 +43,7 @@ function priceAt(series: PricePoint[], ts: number): number | null {
 
 /**
  * Enregistre le cours DIEM/USDC au moment de chaque transaction impliquant du DIEM
- * qui n'en a pas encore. La valeur change USDC d'un montant = montant DIEM × ce cours.
+ * qui n'en a pas encore. La valorisation USDC d'un montant = montant DIEM × ce cours.
  */
 export async function fillMissingDiemPrices(): Promise<{ filled: number; total: number }> {
   await fixMissingTimestampsFromBlocks()

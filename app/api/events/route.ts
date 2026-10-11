@@ -14,7 +14,7 @@ function safeDiem(args: Record<string, unknown>, key: string) {
 function diemPrice(row: Record<string, unknown>): number | null {
   return row.diem_price_usdc == null ? null : Number(row.diem_price_usdc)
 }
-// Valeur change USDC d'un montant DIEM au cours de la transaction
+// Valorisation USDC d'un montant DIEM au cours de la transaction
 function usdcValue(diem: number, price: number | null): number | null {
   return price == null ? null : diem * price
 }
