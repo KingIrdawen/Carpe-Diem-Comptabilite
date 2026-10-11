@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless'
+import { BASE_GENESIS_TS } from './viemClient'
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -72,11 +73,18 @@ export async function insertEvents(events: {
   timestamp: number
   args: Record<string, unknown>
 }[]) {
-  if (events.length === 0) return
-  for (const e of events) {
+  // Insertion par lots : une requête par 1000 événements au lieu d'un aller-retour par ligne
+  for (let i = 0; i < events.length; i += 1000) {
+    const batch = events.slice(i, i + 1000)
     await sql`
       INSERT INTO events (type, tx_hash, block_number, timestamp, args)
-      VALUES (${e.type}, ${e.tx_hash}, ${e.block_number}, ${e.timestamp}, ${JSON.stringify(e.args)})
+      SELECT * FROM unnest(
+        ${batch.map(e => e.type)}::varchar[],
+        ${batch.map(e => e.tx_hash)}::varchar[],
+        ${batch.map(e => e.block_number)}::bigint[],
+        ${batch.map(e => e.timestamp)}::bigint[],
+        ${batch.map(e => JSON.stringify(e.args))}::jsonb[]
+      )
       ON CONFLICT (tx_hash, type) DO NOTHING
     `
   }
@@ -118,8 +126,6 @@ export const DIEM_EVENT_TYPES = [
   'IdleRebateCredited', 'RebateDistributed', 'TreasuryFunded',
 ]
 
-// Sur Base, les blocs sont produits toutes les 2 s exactement depuis la genèse
-const BASE_GENESIS_TS = 1686789347
 
 export async function fixMissingTimestampsFromBlocks() {
   await sql`

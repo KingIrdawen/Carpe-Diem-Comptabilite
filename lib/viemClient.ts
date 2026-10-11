@@ -13,3 +13,11 @@ export function formatUsdc(raw: bigint): number {
 export function formatDiem(raw: bigint): number {
   return Number(raw) / 1e18
 }
+
+// Sur Base, les blocs sont produits toutes les 2 s exactement depuis la genèse :
+// le timestamp d'un bloc se déduit de son numéro, sans appel RPC
+export const BASE_GENESIS_TS = 1686789347
+
+export function blockTimestamp(blockNumber: bigint | string | number): number {
+  return BASE_GENESIS_TS + 2 * Number(blockNumber)
+}

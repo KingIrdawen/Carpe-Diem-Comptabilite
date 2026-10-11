@@ -1,5 +1,5 @@
 import { decodeEventLog } from 'viem'
-import { publicClient } from './viemClient'
+import { publicClient, blockTimestamp } from './viemClient'
 import { CARPE_ESCROW_ADDRESS, CARPE_ESCROW_ABI } from './contracts'
 
 const DEPLOY_BLOCK = 45_717_327n
@@ -49,7 +49,7 @@ async function fetchChunk(fromBlock: bigint, toBlock: bigint, debug?: ChunkDebug
           type: decoded.eventName as string,
           txHash: log.transactionHash ?? '',
           blockNumber: log.blockNumber?.toString() ?? '0',
-          timestamp: 0,
+          timestamp: log.blockNumber ? blockTimestamp(log.blockNumber) : 0,
           args,
         })
         if (debug) debug.decoded++
@@ -124,24 +124,5 @@ export async function fetchAllContractEvents(fromBlock = DEPLOY_BLOCK, toBlock?:
     debugOut.failedTopics = [...new Set(chunkDebug.failedTopics)]
   }
 
-  if (allEvents.length === 0) return []
-
-  // Résoudre les timestamps par blockNumber
-  const uniqueBlocks = [...new Set(allEvents.map(e => e.blockNumber))]
-  const blockTimestamps: Record<string, number> = {}
-
-  for (let i = 0; i < uniqueBlocks.length; i += 20) {
-    const batch = uniqueBlocks.slice(i, i + 20)
-    const blocks = await Promise.all(
-      batch.map(bn => publicClient.getBlock({ blockNumber: BigInt(bn) }).catch(() => null))
-    )
-    blocks.forEach(b => {
-      if (b) blockTimestamps[b.number.toString()] = Number(b.timestamp)
-    })
-  }
-
-  return allEvents.map(e => ({
-    ...e,
-    timestamp: blockTimestamps[e.blockNumber] ?? 0,
-  }))
+  return allEvents
 }

@@ -30,7 +30,9 @@ export async function POST(req: Request) {
 
     const latestBlock = await publicClient.getBlockNumber()
     const fromBlock = dateToBlock(new Date(startDate), latestBlock)
-    const toBlock = dateToBlock(new Date(endDate), latestBlock)
+    // Une date de fin dans le futur ne doit pas dépasser le dernier bloc produit
+    const estimatedTo = dateToBlock(new Date(endDate), latestBlock)
+    const toBlock = estimatedTo > latestBlock ? latestBlock : estimatedTo
 
     if (fromBlock >= toBlock) {
       return NextResponse.json({ error: 'Plage de dates invalide' }, { status: 400 })
