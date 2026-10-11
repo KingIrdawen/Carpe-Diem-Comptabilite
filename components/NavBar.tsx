@@ -27,10 +27,11 @@ export default function NavBar() {
       <div className="flex flex-wrap items-center gap-4">
         {LINKS.map(l => l.href === pathname
           // La page courante reste du texte : elle reste visible à l'impression (les liens sont masqués)
-          ? <span key={l.href} aria-current="page" className="text-sm text-white font-medium">{l.label}</span>
+          ? <span key={l.href} aria-current="page" className="text-sm text-gray-100 font-medium">{l.label}</span>
           : <Link key={l.href} href={l.href} className="text-sm text-gray-400 hover:text-white transition-colors">{l.label}</Link>
         )}
-        <PrintButton />
+        {/* Les statistiques (graphiques + tableau large) s'impriment en paysage */}
+        <PrintButton landscape={pathname === '/statistiques'} />
         <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-white transition-colors">Déconnexion</button>
       </div>
     </nav>

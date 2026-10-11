@@ -173,7 +173,7 @@ export default function StatistiquesPage() {
               Synthèse — <span className="normal-case">{ref.label}</span>
               {prev && <span className="normal-case text-gray-500"> vs {prev.label}</span>}
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 printing:grid-cols-6 gap-3">
               <StatTile label="Utilisateurs actifs" value={fmt(ref.activeUsers)} cur={ref.activeUsers} prev={prev?.activeUsers} upIsGood />
               <StatTile label="Nouveaux utilisateurs" value={fmt(ref.newUsers)} cur={ref.newUsers} prev={prev?.newUsers} upIsGood />
               <StatTile label="Dépôts" value={`${fmt(ref.depositsUsdc)} USDC`} cur={ref.depositsUsdc} prev={prev?.depositsUsdc} upIsGood />
@@ -185,7 +185,7 @@ export default function StatistiquesPage() {
         )}
 
         {months.length > 0 && (
-          <div className="grid lg:grid-cols-2 gap-4">
+          <div className="grid lg:grid-cols-2 printing:grid-cols-2 gap-4">
             <ChartCard title="Utilisateurs" subtitle="Actifs dans le mois (barres) et nouveaux (courbe)">
               <ComposedChart data={months} margin={{ top: 16, right: 56, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} stroke={t.grid} />

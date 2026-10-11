@@ -147,13 +147,13 @@ export default function ComptabilitePage() {
                 Net USDC : {m.netUsdc >= 0 ? '+' : ''}{fmt(m.netUsdc)}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20">
+            <div className="grid grid-cols-2 md:grid-cols-4 printing:grid-cols-4 gap-0 divide-x divide-blue-500/20">
               <Cell label="Dépôts" value={`+${fmt(m.depositsUsdc)} USDC`} color="green" />
               <Cell label="Charges" value={`-${fmt(m.chargesUsdc)} USDC`} color="blue" />
               <Cell label="Routes ext." value={`-${fmt(m.externalUsdc)} USDC`} color="purple" />
               <Cell label="Migrations" value={`-${fmt(m.migrationsUsdc)} USDC`} color="orange" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/20">
+            <div className="grid grid-cols-2 md:grid-cols-4 printing:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/20">
               <Cell label="Frais proto." value={`${fmt(m.feesProtocol, 4)} DIEM`} usdcValue={`≈ ${fmt(m.feesProtocolUsdc)} USDC`} color={m.feesProtocol > 0 ? 'green' : 'gray'} />
               <Cell label="Retr. prov." value={`${fmt(m.providerWithdrawals, 4)} DIEM`} usdcValue={`≈ ${fmt(m.providerWithdrawalsUsdc)} USDC`} color={m.providerWithdrawals > 0 ? 'red' : 'gray'} />
               <Cell label="Rebates" value={`-${fmt(m.rebatesUsdc)} USDC`} color={m.rebatesUsdc > 0 ? 'red' : 'gray'} />
@@ -174,13 +174,13 @@ export default function ComptabilitePage() {
                 Net USDC : {yearly.netUsdc >= 0 ? '+' : ''}{fmt(yearly.netUsdc)}
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20">
+            <div className="grid grid-cols-2 md:grid-cols-4 printing:grid-cols-4 gap-0 divide-x divide-blue-500/20">
               <Cell label="Total dépôts" value={`+${fmt(yearly.depositsUsdc)} USDC`} color="green" />
               <Cell label="Total charges" value={`-${fmt(yearly.chargesUsdc)} USDC`} color="blue" />
               <Cell label="Routes ext." value={`-${fmt(yearly.externalUsdc)} USDC`} color="purple" />
               <Cell label="Migrations" value={`-${fmt(yearly.migrationsUsdc)} USDC`} color="orange" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/30">
+            <div className="grid grid-cols-2 md:grid-cols-4 printing:grid-cols-4 gap-0 divide-x divide-blue-500/20 border-t border-blue-500/30">
               <Cell label="Frais proto." value={`${fmt(yearly.feesProtocol, 4)} DIEM`} usdcValue={`≈ ${fmt(yearly.feesProtocolUsdc)} USDC`} color="gray" />
               <Cell label="Retr. prov." value={`${fmt(yearly.providerWithdrawals, 4)} DIEM`} usdcValue={`≈ ${fmt(yearly.providerWithdrawalsUsdc)} USDC`} color="gray" />
               <Cell label="Rebates" value={`-${fmt(yearly.rebatesUsdc)} USDC`} color="gray" />
